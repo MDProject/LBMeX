@@ -110,22 +110,20 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Array1D<Real,0,2*nvel> thermal_noise(const Array<Real,2>& rho, const RandomEngine& engine) {
   Array1D<Real,0,2*nvel> xi = {};
 
-  // TODO: need to use the reference densities [uschill 2025/01/12]
-
   // densities are conserved
   xi(0) = xi(nvel) = 0.0;
 
   // fluxes are anticorrelated (total momentum is conserved)
   for (int i=1; i<=AMREX_SPACEDIM; ++i ) {
-    const Real pref = (2.*lambda_d-lambda_d*lambda_d)*temperature*rho[0]*rho[1]/(rho[0]+rho[1]);
+    const Real pref = (2.-lambda_d)*lambda_d*temperature*rho[0]*rho[1]/(rho[0]+rho[1]);
     xi(i) = std::sqrt(pref) * RandomNormal(0., 1., engine);
     xi(i+nvel) = - xi(i);
   }
 
   // remaining modes
   for (int i=AMREX_SPACEDIM+1; i<nvel; ++i) {
-    const Real pref = (2.*lambda_f[i]-lambda_f[i]*lambda_f[i])*b[i]*cs2*temperature*rho[0];
-    const Real preg = (2.*lambda_g[i]-lambda_g[i]*lambda_g[i])*b[i]*cs2*temperature*rho[1];
+    const Real pref = (2.-lambda_f[i])*lambda_f[i]*b[i]*temperature/cs2*rho[0];
+    const Real preg = (2.-lambda_g[i])*lambda_g[i]*b[i]*temperature/cs2*rho[1];
     xi(i) = std::sqrt(pref) * RandomNormal(0., 1., engine);
     xi(i+nvel) = std::sqrt(preg) * RandomNormal(0., 1., engine);
   }
@@ -164,7 +162,7 @@ void collide(int x, int y, int z,
   mfEq = equilibrium_moments(rho[0], v_b+0.5*a_b);
   mgEq = equilibrium_moments(rho[1], v_b+0.5*a_b);
 
-  xi = thermal_noise(rho, engine);
+  xi = thermal_noise(rho, engine); // TODO: need to use the reference densities [uschill 2025/01/12]
 
   phi = force_moments(rho, v, a, xi);
   Array1D<Real,0,nvel> const& phif = phi[0];
