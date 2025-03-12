@@ -16,13 +16,13 @@ AMREX_GPU_MANAGED Real temperature = 1e-5;
 
 AMREX_GPU_MANAGED Real init_frac = 0.5; // fractional size of droplet or stripe
 
-AMREX_GPU_CONSTANT Real lambda_d = 1.0;
-AMREX_GPU_CONSTANT Real lambda_b = 1.0;
-AMREX_GPU_CONSTANT Real lambda_s = 1.0;
-AMREX_GPU_CONSTANT Real lambda_o = 1.0;
-AMREX_GPU_CONSTANT Real lambda_e = 1.0;
+AMREX_GPU_CONSTANT Real const lambda_d = 1.0;
+AMREX_GPU_CONSTANT Real const lambda_b = 1.0;
+AMREX_GPU_CONSTANT Real const lambda_s = 1.0;
+AMREX_GPU_CONSTANT Real const lambda_o = 1.0;
+AMREX_GPU_CONSTANT Real const lambda_e = 1.0;
 
-AMREX_GPU_MANAGED const Array<Real,nvel>
+AMREX_GPU_CONSTANT Array<Real,nvel> const
 lambda_f = { 0.,
   lambda_d, lambda_d, lambda_d,
   lambda_b, lambda_s, lambda_s, lambda_s, lambda_s, lambda_s,
@@ -30,7 +30,7 @@ lambda_f = { 0.,
   lambda_e, lambda_e, lambda_e
 };
 
-AMREX_GPU_MANAGED const Array<Real,nvel>
+AMREX_GPU_CONSTANT Array<Real,nvel> const
 lambda_g = { 0.,
   lambda_d, lambda_d, lambda_d,
   lambda_b, lambda_s, lambda_s, lambda_s, lambda_s, lambda_s,

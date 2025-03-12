@@ -71,7 +71,7 @@ AMREX_GPU_MANAGED Real w[19] = {
   1./36.
 };
 
-const Real b[19] = {
+AMREX_GPU_MANAGED Real b[19] = {
   1.0,
   1./3.,
   1./3.,
@@ -296,7 +296,8 @@ Array1D<Real,0,nvel> hydrovars(const Array1D<Real,0,nvel>& m) {
   return h;
 }
 
-inline Array1D<Real,0,nvel> equilibrium(const Real& rho, const RealVect& u) {
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Array1D<Real,0,nvel> equilibrium(const Real& rho, const RealVect& u) {
   Array1D<Real,0,nvel> fEq;
 
   Real ruu[3][3];
@@ -321,7 +322,8 @@ inline Array1D<Real,0,nvel> equilibrium(const Real& rho, const RealVect& u) {
   return fEq;
 }
 
-inline Array1D<Real,0,nvel> equilibrium_moments(const Real& rho, const RealVect& u) {
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Array1D<Real,0,nvel> equilibrium_moments(const Real& rho, const RealVect& u) {
   Array1D<Real,0,nvel> mEq;
 
   /* mass density */
