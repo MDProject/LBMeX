@@ -93,11 +93,11 @@ void main_driver(const char* argv) {
   MultiFab noise(ba, dm, 2*nvel, nghost);
 
   // set up StructFact
-  int nStructVars = 5;
+  int nStructVars = 8;
   const Vector<std::string> var_names = hydrovars_names(nStructVars);
-  const Vector<int> pairA = { 0, 1, 2, 3, 4 };
-  const Vector<int> pairB = { 0, 1, 2, 3, 4 };
-  const Vector<Real> var_scaling = { 1.0, 1.0, 1.0, 1.0, 1.0 };
+  const Vector<int> pairA = { 0, 1, 2, 3, 4, 5, 6, 7 };
+  const Vector<int> pairB = { 0, 1, 2, 3, 4, 5, 6, 7 };
+  const Vector<Real> var_scaling = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
   StructFact structFact(ba, dm, var_names, var_scaling, pairA, pairB);
 
   // INITIALIZE
