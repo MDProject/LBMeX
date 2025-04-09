@@ -1,5 +1,5 @@
-AMREX_HOME ?= ../amrex
-FHDEX_HOME ?= ../FHDeX
+AMREX_HOME ?= ../../../amrex
+FHDEX_HOME ?= ../../../FHDeX
 
 
 EIGEN_DIR = ../eigen/

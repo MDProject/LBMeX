@@ -85,9 +85,7 @@ __global__ void kernel_example() {
 
 //nsys profile --trace=cuda,osrt,syscall --cuda-um-cpu-page-faults=true --cuda-um-gpu-page-faults=true --cuda-memory-usage=true --output=profile_output ./main3d.gnu.MPI.CUDA.ex
 
-int main(int argc, char* argv[]) {
-
-  amrex::Initialize(argc, argv);
+void main_driver(const char *argv) {
   amrex::Arena::PrintUsage();
   bool noiseSwitch;
   if(T==0){
