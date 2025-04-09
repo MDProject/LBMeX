@@ -40,12 +40,7 @@ using namespace amrex;
 //#define POST_PROCESS_DROPLET
 
 
-extern Real alpha0; //  %.2f format
-extern Real T;      //  %.1e format
-
 //  **************************************    GENERAL SETTINGS     *****************************
-const bool tagHDF5 = false; 
-
 const bool is_flate_interface = false;
 const bool is_droplet = false;
 const bool is_mixture = true;
@@ -301,8 +296,6 @@ void main_driver(const char *argv) {
   MultiFabNANCheck(hydrovs, false, 0);
 
   // set up StructFact
-  int nStructVars = 2;
-  //const Vector<std::string> var_names = hydrovars_names(nStructVars);
   const Vector<int> pairA = { 0, 1, 2, 3, 4, 0, 2, 3, 4};
   const Vector<int> pairB = { 0, 1, 2, 3, 4, 1, 3, 4, 2};
   const Vector<Real> var_scaling = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};

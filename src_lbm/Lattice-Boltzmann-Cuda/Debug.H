@@ -239,7 +239,7 @@ void PrintConvergence(std::string plot_file_root, int step1, int step2, int step
     hydrovs_deviation.mult(1./Nsteps);
     // if passing in true, then using the ensemble average mean as equilibrium state solution and save it into [mfab_ref]
     if(ifSave){
-        mfab_ref.copy(hydrovs_mean, 0, 0, 1);   // derived from BaseFab member function;
+        mfab_ref.ParallelCopy(hydrovs_mean, 0, 0, 1);   // derived from BaseFab member function;
     }
 
     // calculate the p-residues (p=1 or \infty) for ensemble MultiFabs stored in array [hydrovs_readin_array];

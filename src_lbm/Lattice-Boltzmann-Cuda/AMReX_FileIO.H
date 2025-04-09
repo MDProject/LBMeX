@@ -177,8 +177,8 @@ inline Vector<std::string> VariableNames(const int numVars) {
   
     // The following part is cutoff due to [cnt]>=variables number we input
     // pxx, pxy, pxz, pyy, pyz, pzz
-    for (int i=0; i<AMREX_SPACEDIM, cnt<numVars; ++i) {
-      for (int j=i; j<AMREX_SPACEDIM, cnt<numVars; ++j) {
+    for (int i=0; i<AMREX_SPACEDIM && cnt<numVars; ++i) {
+      for (int j=i; j<AMREX_SPACEDIM && cnt<numVars; ++j) {
         name = "p";
         name += (120+i);
         name += (120+j);

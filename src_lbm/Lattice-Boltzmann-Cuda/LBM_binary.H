@@ -293,8 +293,8 @@ void hydrovars_bar_density(int x, int y, int z,
 	       const Array4<Real>& f,
 	       const Array4<Real>& g,
 	       const Array4<Real>& hb) {
-  Real rho, phi, jf[3], jg[3];
-  rho = phi = jf[0] = jf[1] = jf[2] = jg[0] = jg[1] = jg[2] = 0.0;
+  Real rho, phi;
+  rho = phi = 0.0;
   for (int i=0; i<nvel; ++i) {
     Real fi, gi;
     fi = f(x,y,z,i);
@@ -332,7 +332,7 @@ Array1D<Real,0,nvel> fequilibrium_moments(const Array1D<Real,0,2>& fields, // rh
   const Real coefB = 1.;
   const Real coefAB = coefA*coefB;
   const Real coefC = 1./cs2;
-  const Real coefAC = coefA*coefC;
+
   RealVect coefE = { u[0], u[1], u[2] };
   //Print() << coefE << '\n';
   Real coefAD[3][3];   // \frac{\bm{v}\bm{v}}{2c^4}, tensor of size 3*3;
@@ -383,7 +383,7 @@ Array1D<Real,0,nvel> gequilibrium_moments(const Array1D<Real,0,2>& fields,
   const Real coefB = 1.;
   const Real coefAB = coefA*coefB;
   const Real coefC = 1./cs2;
-  const Real coefAC = coefA*coefC;
+
   RealVect coefE = { u[0], u[1], u[2] };
   Real coefAD[3][3];   // \frac{\bm{v}\bm{v}}{2c^4}, tensor of size 3*3;
   coefAD[0][0] = (coefA*u[0]*u[0])/2./cs4;
@@ -731,7 +731,6 @@ inline void LBM_init_droplet(const Real r,
 #endif
     const Real r = sqrt(r2);
 
-    const Real rho = 1.0;
     const Real phi0 = 0.5;
     const Real phi = phi0*tanh((R-r)/sqrt(kappa));
 
