@@ -60,7 +60,7 @@ inline void WriteOutput(int step,
   const Vector<std::string> var_names = hydrovars_names(hydrovs.nComp());
   const std::string& pltfile = amrex::Concatenate("plt",step,5);
   WriteSingleLevelPlotfile(pltfile, hydrovs, var_names, geom, Real(step), step);
-  if (plot_SF > 0) structFact.WritePlotFile(step, static_cast<Real>(step), geom, "plt_SF", zero_avg);
+  if (plot_SF > 0) structFact.WritePlotFile(step, static_cast<Real>(step), "plt_SF", zero_avg);
 }
 
 void main_driver(const char* argv) {
@@ -110,7 +110,7 @@ void main_driver(const char* argv) {
   // TIMESTEP
   for (int step=1; step <= nsteps; ++step) {
     LBM_timestep(geom, fold, gold, fnew, gnew, hydrovs);
-    if (plot_SF > 0) structFact.FortStructure(hydrovs, geom);
+    if (plot_SF > 0) structFact.FortStructure(hydrovs);
     if (plot_int > 0 && step%plot_int ==0) {
       WriteOutput(step, geom, hydrovs, structFact);
       Print() << "LB step " << step << std::endl;
