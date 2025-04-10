@@ -60,7 +60,7 @@ inline void WriteOutput(int step,
   const Vector<std::string> var_names = hydrovars_names(hydrovs.nComp());
   const std::string& pltfile = amrex::Concatenate("plt",step,5);
   WriteSingleLevelPlotfile(pltfile, hydrovs, var_names, geom, Real(step), step);
-  if (plot_SF > 0) structFact.WritePlotFile(step, static_cast<Real>(step), geom, "plt_SF", zero_avg);
+  if (plot_SF > 0) structFact.WritePlotFile(step, static_cast<Real>(step), "plt_SF", zero_avg);
 }
 
 void main_driver(const char* argv) {
@@ -93,11 +93,11 @@ void main_driver(const char* argv) {
   MultiFab noise(ba, dm, 2*nvel, nghost);
 
   // set up StructFact
-  int nStructVars = 5;
+  int nStructVars = 8;
   const Vector<std::string> var_names = hydrovars_names(nStructVars);
-  const Vector<int> pairA = { 0, 1, 2, 3, 4 };
-  const Vector<int> pairB = { 0, 1, 2, 3, 4 };
-  const Vector<Real> var_scaling = { 1.0, 1.0, 1.0, 1.0, 1.0 };
+  const Vector<int> pairA = { 0, 1, 2, 3, 4, 5, 6, 7 };
+  const Vector<int> pairB = { 0, 1, 2, 3, 4, 5, 6, 7 };
+  const Vector<Real> var_scaling = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
   StructFact structFact(ba, dm, var_names, var_scaling, pairA, pairB);
 
   // INITIALIZE
@@ -110,7 +110,7 @@ void main_driver(const char* argv) {
   // TIMESTEP
   for (int step=1; step <= nsteps; ++step) {
     LBM_timestep(geom, fold, gold, fnew, gnew, hydrovs);
-    if (plot_SF > 0) structFact.FortStructure(hydrovs, geom);
+    if (plot_SF > 0) structFact.FortStructure(hydrovs);
     if (plot_int > 0 && step%plot_int ==0) {
       WriteOutput(step, geom, hydrovs, structFact);
       Print() << "LB step " << step << std::endl;
