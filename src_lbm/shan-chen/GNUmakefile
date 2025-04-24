@@ -14,6 +14,7 @@ USE_MPI   = FALSE
 USE_OMP   = FALSE
 USE_CUDA  = TRUE
 USE_HIP   = FALSE
+AMREX_CUDA_ARCH = 8.9
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 

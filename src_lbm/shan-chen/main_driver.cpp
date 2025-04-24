@@ -13,43 +13,18 @@ using namespace amrex;
 
 // default grid parameters
 IntVect domain_size(16);
-IntVect max_box_size(32);
+IntVect max_box_size(8);
 
 // default time stepping parameters
-int nsteps = 10;
+int nsteps = 8;//400000;
 
 // default output parameters
-int plot_SF = 0;
+int plot_SF = 50;
+int plot_SF_window = 100000;
+int plot_SF_start = nsteps - plot_SF_window;
 
-inline void ReadInput() {
-  ParmParse pp;
+int plot_int = 1;//1000;
 
-  /* grid parameters */
-  pp.query("nx", domain_size[0]);
-  domain_size[2] = domain_size[1] = domain_size[0]; // default to cubic box
-  pp.query("ny", domain_size[1]);
-  pp.query("nz", domain_size[2]);
-
-  pp.query("max_grid_size_x", max_box_size[0]);
-  max_box_size[2] = max_box_size[1] = max_box_size[0]; // default to same maxSize in all directions
-  pp.query("max_grid_size_y", max_box_size[1]);
-  pp.query("max_grid_size_z", max_box_size[2]);
-
-  // initial condition
-  init_cond = "droplet";
-  pp.query("init_cond", init_cond);
-  pp.query("init_frac", init_frac);
-
-  // thermodynamic parameters
-  pp.query("G", G);
-  pp.query("temperature", temperature);
-
-  /* time stepping and output parameters */
-  pp.query("nsteps", nsteps);
-  pp.query("plot_int", plot_int);
-  pp.query("plot_SF", plot_SF);
-
-}
 
 inline void WriteOutput(int step,
       const Geometry& geom,
@@ -58,18 +33,19 @@ inline void WriteOutput(int step,
   // set up variable names for output
   const int zero_avg = 1;
   const Vector<std::string> var_names = hydrovars_names(hydrovs.nComp());
-  const std::string& pltfile = amrex::Concatenate("plt",step,5);
+  const std::string& pltfile = amrex::Concatenate("./data_mixture/plt",step,5);
   WriteSingleLevelPlotfile(pltfile, hydrovs, var_names, geom, Real(step), step);
-  if (plot_SF > 0) structFact.WritePlotFile(step, static_cast<Real>(step), geom, "plt_SF", zero_avg);
+  if (plot_SF > 0 && step == nsteps) structFact.WritePlotFile(step, static_cast<Real>(step), "./data_mixture/plt_SF", zero_avg);
 }
 
-void main_driver(const char* argv) {
+int main(int argc, char* argv[]) {
 
+  amrex::Initialize(argc, argv);
   // store the current time so we can later compute total run time.
   Real strt_time = ParallelDescriptor::second();
 
   // read input parameters
-  ReadInput();
+  // ReadInput();
 
   // set up Box and Geomtry
   RealBox real_box({0.,0.,0.},{1.,1.,1.});
@@ -94,7 +70,10 @@ void main_driver(const char* argv) {
 
   // set up StructFact
   int nStructVars = 5;
-  const Vector<std::string> var_names = hydrovars_names(nStructVars);
+  const Vector<std::string> var_names = hydrovars_names(20);
+  for (const auto& name : var_names) {
+    std::cout << name << std::endl;
+  }
   const Vector<int> pairA = { 0, 1, 2, 3, 4 };
   const Vector<int> pairB = { 0, 1, 2, 3, 4 };
   const Vector<Real> var_scaling = { 1.0, 1.0, 1.0, 1.0, 1.0 };
@@ -102,7 +81,7 @@ void main_driver(const char* argv) {
 
   // INITIALIZE
   LBM_init(geom, fold, gold, hydrovs);
-  if (plot_int > 0) WriteOutput(0, geom, hydrovs, structFact);
+  if (::plot_int > 0) WriteOutput(0, geom, hydrovs, structFact);
   Print() << "LB initialized lattice " << domain <<"\n" << ba << dm << std::endl;
 
   unit_tests(geom, hydrovs);
@@ -110,8 +89,9 @@ void main_driver(const char* argv) {
   // TIMESTEP
   for (int step=1; step <= nsteps; ++step) {
     LBM_timestep(geom, fold, gold, fnew, gnew, hydrovs);
-    if (plot_SF > 0) structFact.FortStructure(hydrovs, geom);
-    if (plot_int > 0 && step%plot_int ==0) {
+    if (plot_SF > 0 && step >= plot_SF_start && step%plot_SF == 0) structFact.FortStructure(hydrovs, 0);
+    // not the hydrovs, but real hydrovars??? 
+    if (::plot_int > 0 && step%(::plot_int) == 0) {
       WriteOutput(step, geom, hydrovs, structFact);
       Print() << "LB step " << step << std::endl;
     }
@@ -125,4 +105,5 @@ void main_driver(const char* argv) {
   ParallelDescriptor::ReduceRealMax(stop_time);
   amrex::Print() << "Run time = " << stop_time << " s (" << domain.numPts()*nsteps/stop_time << " LUP/s)" << std::endl;
   
+  amrex::Finalize();
 }

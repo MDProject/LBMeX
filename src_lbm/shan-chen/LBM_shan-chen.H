@@ -6,13 +6,13 @@
 // default initial condition
 std::string init_cond = "mixture";
 
-AMREX_GPU_MANAGED Real G = 1.5;
-AMREX_GPU_MANAGED Real rho_hi = 2.3; // values reported by Belardinelli et al. [Phys. Rev. E 91, 023313 (2015)]
-AMREX_GPU_MANAGED Real rho_lo = 0.06;
+AMREX_GPU_MANAGED Real G = 0.8;//1.5;
+AMREX_GPU_MANAGED Real rho_hi = 1.;//2.3; // values reported by Belardinelli et al. [Phys. Rev. E 91, 023313 (2015)]
+AMREX_GPU_MANAGED Real rho_lo = 1.;//0.06;
 AMREX_GPU_MANAGED Real sigma = 0.174; // interfacial tension
 AMREX_GPU_MANAGED Real alpha = 6; // interface width
 
-AMREX_GPU_MANAGED Real temperature = 1e-5;
+AMREX_GPU_MANAGED Real temperature = 0.;//1e-5;
 
 AMREX_GPU_MANAGED Real init_frac = 0.5; // fractional size of droplet or stripe
 
@@ -65,23 +65,35 @@ Real laplacian(int x, int y, int z, const Array4<Real>& field, int icomp) {
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia) {
+Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia, bool tag=false) {
   Array<Array1D<Real,0,nvel>,2> phia;
-
+  Array<RealVect,2> va_tmp = va;  // [va] denotes the modified velocity
   for (int i=0; i<2; ++i) {
     int j = (i+1)%2;
 
     RealVect xi;
-    for (int k=0; k<AMREX_SPACEDIM; ++k) xi[0] = xia(i*nvel+k+1);
+    for (int k=0; k<AMREX_SPACEDIM; ++k) xi[k] = xia(i*nvel+k+1);
 
-    // express v, v' in terms of v̄, v̄' [Belardinelli et al. Eq. (71)]
-    va[i] = va[i] + 0.5*( aa[i] + lambda_d*rhoa[j]/(rhoa[i]+rhoa[j])*(va[i]-va[j]+0.5*(aa[i]-aa[j])) + (1-0.5*lambda_d)*xi[i]/rhoa[i] );
+    //printf("xi(%d) = %f\t", i, xi[i]);  // only has nonzero values for i=0 ???
+
+    // express v, v' in terms of v̄, v̄' [Belardinelli et al. Eq. (71)] ?????????????????????????    last term????  + or - ???
+    // and va[0] will be changed after first loop ?
+    va_tmp[i] = va[i] + 0.5*( aa[i] - lambda_d*rhoa[j]/(rhoa[i]+rhoa[j])*(va[i]-va[j]+0.5*(aa[i]-aa[j])) + (1-0.5*lambda_d)*xi/rhoa[i] );
 
     Array1D<Real,0,nvel>& phi = phia[i];
     Real const& rho = rhoa[i];
-    RealVect const& v = va[i];
+    RealVect const& v = va_tmp[i];
     RealVect const& a = aa[i];
 
+    if(tag){
+      for(int n=0; n<3; ++n) {
+        if(i==0){
+          printf("vf(%d) = %.8f\t", n, v[n]);
+        }else{
+          printf("vg(%d) = %.8f\t", n, v[n]);
+        }
+      }
+    }
     /* density mode */
     phi(0) = 0.0;
 
@@ -90,13 +102,14 @@ Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<Rea
     phi(2) = rho*a[1];
     phi(3) = rho*a[2];
 
-    /* stress modes */
-    phi(4) = rho*(a[0]*v[0] + a[1]*v[1] + a[2]*v[2]);
-    phi(5) = rho*(2.*a[0]*v[0] - a[1]*v[1] - a[2]*v[2]);
-    phi(6) = rho*(a[1]*v[1] - a[2]*v[2]);
-    phi(7) = 0.5*rho*(a[0]*v[1]+a[1]*v[0]);
-    phi(8) = 0.5*rho*(a[1]*v[2]+a[2]*v[1]);
-    phi(9) = 0.5*rho*(a[2]*v[0]+a[0]*v[2]);
+    /* stress modes */  // ???? 
+    Real factor = 2.;
+    phi(4) = factor*rho*(a[0]*v[0] + a[1]*v[1] + a[2]*v[2]);
+    phi(5) = factor*rho*(2.*a[0]*v[0] - a[1]*v[1] - a[2]*v[2]);
+    phi(6) = factor*rho*(a[1]*v[1] - a[2]*v[2]);
+    phi(7) = factor*0.5*rho*(a[0]*v[1]+a[1]*v[0]);
+    phi(8) = factor*0.5*rho*(a[1]*v[2]+a[2]*v[1]);
+    phi(9) = factor*0.5*rho*(a[2]*v[0]+a[0]*v[2]);
 
     /* kinetic modes  */
     for (int i=10; i<nvel; ++i) phi(i) = 0.0;
@@ -115,15 +128,15 @@ Array1D<Real,0,2*nvel> thermal_noise(const Array<Real,2>& rho, const RandomEngin
 
   // fluxes are anticorrelated (total momentum is conserved)
   for (int i=1; i<=AMREX_SPACEDIM; ++i ) {
-    const Real pref = (2.-lambda_d)*lambda_d*temperature*rho[0]*rho[1]/(rho[0]+rho[1]);
+    const Real pref = (2.-lambda_d)*lambda_d*temperature*0.5;//rho[0]*rho[1]/(rho[0]+rho[1]);
     xi(i) = std::sqrt(pref) * RandomNormal(0., 1., engine);
     xi(i+nvel) = - xi(i);
   }
 
   // remaining modes
   for (int i=AMREX_SPACEDIM+1; i<nvel; ++i) {
-    const Real pref = (2.-lambda_f[i])*lambda_f[i]*b[i]*temperature/cs2*rho[0];
-    const Real preg = (2.-lambda_g[i])*lambda_g[i]*b[i]*temperature/cs2*rho[1];
+    const Real pref = (2.-lambda_f[i])*lambda_f[i]*b[i]*temperature/cs2;//*rho[0];
+    const Real preg = (2.-lambda_g[i])*lambda_g[i]*b[i]*temperature/cs2;//*rho[1];
     xi(i) = std::sqrt(pref) * RandomNormal(0., 1., engine);
     xi(i+nvel) = std::sqrt(preg) * RandomNormal(0., 1., engine);
   }
@@ -153,6 +166,7 @@ void collide(int x, int y, int z,
   v[0] = (mf(0) > FLT_EPSILON) ? RealVect(mf(1), mf(2), mf(3))/mf(0) : RealVect(0.);
   v[1] = (mg(0) > FLT_EPSILON) ? RealVect(mg(1), mg(2), mg(3))/mg(0) : RealVect(0.);
 
+
   a[0] = -G*cs2*gradient(x,y,z,h,1);
   a[1] = -G*cs2*gradient(x,y,z,h,0);
 
@@ -164,17 +178,56 @@ void collide(int x, int y, int z,
 
   xi = thermal_noise(rho, engine); // TODO: need to use the reference densities [uschill 2025/01/12]
 
-  phi = force_moments(rho, v, a, xi);
+  if(x==0 && y==0 && z==0){
+    phi = force_moments(rho, v, a, xi, true);
+  }else{
+    phi = force_moments(rho, v, a, xi);
+  }
   Array1D<Real,0,nvel> const& phif = phi[0];
   Array1D<Real,0,nvel> const& phig = phi[1];
+
+  if(x==0 && y==0 && z==0) {
+    for(int i=0; i<nvel; ++i) {
+      printf("mfEq(%d) = %.8f\t", i, mfEq(i));
+      printf("phif(%d) = %.8f\t", i, phif(i));
+      printf("mgEq(%d) = %.8f\t", i, mgEq(i));
+      printf("phig(%d) = %.8f\t", i, phig(i));
+    }
+    printf("\n");
+    printf("h(%d) = %.8f\t", 0, h(x,y,z,0));
+    printf("h(%d) = %.8f\t", 1, h(x,y,z,1));
+    for(int i=0; i<3; ++i) {
+      printf("v_b(%d) = %.8f\t", i, v_b[i]);
+      printf("af(%d) = %.8f\t", i, a[0][i]);
+      printf("ag(%d) = %.8f\t", i, a[1][i]);
+    }
+    printf("\n");
+  }
 
   for (int i=0; i<nvel; ++i) {
     mf(i) = mf(i) - lambda_f[i] * (mf(i) - mfEq(i)) + (1.-0.5*lambda_f[i])*phif(i) + xi(i);
     mg(i) = mg(i) - lambda_g[i] * (mg(i) - mgEq(i)) + (1.-0.5*lambda_g[i])*phig(i) + xi(i+nvel);
   }
 
+  if(x==0 && y==0 && z==0) {
+    printf("\n");
+    for(int i=0; i<nvel; ++i) {
+      printf("mf(%d) = %f\t", i, mf(i));
+      printf("mg(%d) = %f\t", i, mg(i));
+    }
+    printf("\n");
+  }
+
   populations(x,y,z,f,mf);
   populations(x,y,z,g,mg);
+
+  if(x==0 && y==0 && z==0) {
+    for(int i=0; i<nvel; ++i) {
+      printf("f(%d) = %.8f\t", i, f(x,y,z,i));
+      printf("g(%d) = %.8f\t", i, g(x,y,z,i));
+    }
+    printf("\n");
+  }
 
 }
 
@@ -275,6 +328,16 @@ void hydrovars(int x, int y, int z,
     h(x,y,z,i+1+AMREX_SPACEDIM) = mf(i);      // f to be stored in 8..22
     h(x,y,z,i+nvel) = mg(i);                  // g to be stored in 23..37
   }
+
+  if(x==0 && y==0 && z==0) {
+    for(int i=0; i<nvel; ++i) {
+      printf("hydro_f(%d) = %.8f\t", i, f(x,y,z,i));
+      printf("hydro_g(%d) = %.8f\t", i, g(x,y,z,i));
+    }
+    printf("hydro(%d) = %.8f\t", 0, h(x,y,z,0));
+    printf("hydro(%d) = %.8f\t", 1, h(x,y,z,1));
+    printf("\n");
+  }
 }
 
 // calculate hydrodynamic moments for whole lattice
@@ -300,15 +363,15 @@ inline void LBM_timestep(const Geometry& geom,
 inline void LBM_init_mixture(MultiFab& mf,
 			     MultiFab& mg,
 			     MultiFab& hydrovs) {
-  const Real rho = 0.5*(::rho_hi+::rho_lo);
+  const Real rho = 0.5*(::rho_hi+::rho_lo); // =1
   for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
     const Array4<Real>& f = mf.array(mfi);
     const Array4<Real>& g = mg.array(mfi);
     ParallelForRNG(mfi.validbox(), [=] AMREX_GPU_DEVICE(int x, int y, int z, RandomEngine const& engine) {
-      const Real noise = 0.01*RandomNormal(0., 1., engine);
+      const Real noise = 0.;//0.01*RandomNormal(0., 1., engine);
       for (int i=0; i<nvel; i++) {
-        f(x,y,z,i) = w[i]*(rho + noise);
-        g(x,y,z,i) = w[i]*(rho - noise);
+        f(x,y,z,i) = w[i]*(rho + (x+y+z)/500.);
+        g(x,y,z,i) = w[i]*(rho - (x+y+z)/500.);
       }
     });
   }
