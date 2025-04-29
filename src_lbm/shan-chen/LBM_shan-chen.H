@@ -187,15 +187,17 @@ void collide(int x, int y, int z,
   Array1D<Real,0,nvel> const& phig = phi[1];
 
   if(x==0 && y==0 && z==0) {
+    printf("moments in collide() = \n");
     for(int i=0; i<nvel; ++i) {
       printf("mfEq(%d) = %.8f\t", i, mfEq(i));
       printf("phif(%d) = %.8f\t", i, phif(i));
       printf("mgEq(%d) = %.8f\t", i, mgEq(i));
       printf("phig(%d) = %.8f\t", i, phig(i));
     }
-    printf("\n");
+    printf("\ndensity in collide() = \n");
     printf("h(%d) = %.8f\t", 0, h(x,y,z,0));
     printf("h(%d) = %.8f\t", 1, h(x,y,z,1));
+    printf("\ncenter-of-mass velocity & acceleration in collide() = \n");
     for(int i=0; i<3; ++i) {
       printf("v_b(%d) = %.8f\t", i, v_b[i]);
       printf("af(%d) = %.8f\t", i, a[0][i]);
@@ -210,7 +212,7 @@ void collide(int x, int y, int z,
   }
 
   if(x==0 && y==0 && z==0) {
-    printf("\n");
+    printf("moments after collision = \n");
     for(int i=0; i<nvel; ++i) {
       printf("mf(%d) = %f\t", i, mf(i));
       printf("mg(%d) = %f\t", i, mg(i));
@@ -330,10 +332,12 @@ void hydrovars(int x, int y, int z,
   }
 
   if(x==0 && y==0 && z==0) {
+    printf("populations in hydrovars() = \n");
     for(int i=0; i<nvel; ++i) {
       printf("hydro_f(%d) = %.8f\t", i, f(x,y,z,i));
       printf("hydro_g(%d) = %.8f\t", i, g(x,y,z,i));
     }
+    printf("\ndensity in hydrovars\n");
     printf("hydro(%d) = %.8f\t", 0, h(x,y,z,0));
     printf("hydro(%d) = %.8f\t", 1, h(x,y,z,1));
     printf("\n");

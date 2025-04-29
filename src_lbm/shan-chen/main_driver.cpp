@@ -93,7 +93,9 @@ int main(int argc, char* argv[]) {
     // not the hydrovs, but real hydrovars??? 
     if (::plot_int > 0 && step%(::plot_int) == 0) {
       WriteOutput(step, geom, hydrovs, structFact);
-      Print() << "LB step " << step << std::endl;
+      Print() << "\t**************************************\t" << std::endl;
+      Print() << "\tLB step " << step << std::endl;
+      Print() << "\t**************************************\t" << std::endl;
     }
   }
 
