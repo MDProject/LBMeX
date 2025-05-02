@@ -73,10 +73,10 @@ Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<Rea
     int j = (i+1)%2;
 
     RealVect xi;
-    for (int k=0; k<AMREX_SPACEDIM; ++k) xi[0] = xia(i*nvel+k+1);
+    for (int k=0; k<AMREX_SPACEDIM; ++k) xi[k] = xia(i*nvel+k+1);
 
     // express v, v' in terms of v̄, v̄' [Belardinelli et al. Eq. (71)]
-    vmod[i] = va[i] + 0.5*( aa[i] + lambda_d*rhoa[j]/(rhoa[i]+rhoa[j])*(va[i]-va[j]+0.5*(aa[i]-aa[j])) + (1-0.5*lambda_d)*xi[i]/rhoa[i] );
+    vmod[i] = va[i] + 0.5*( aa[i] - lambda_d*rhoa[j]/(rhoa[i]+rhoa[j])*(va[i]-va[j]+0.5*(aa[i]-aa[j])) + (1-0.5*lambda_d)*xi[i]/rhoa[i] );
 
     Array1D<Real,0,nvel>& phi = phia[i];
     Real const& rho = rhoa[i];
@@ -117,7 +117,7 @@ Array1D<Real,0,2*nvel> thermal_noise(const Array<Real,2>& rho, const RandomEngin
   // fluxes are anticorrelated (total momentum is conserved)
   for (int i=1; i<=AMREX_SPACEDIM; ++i ) {
     const Real pref = (2.-lambda_d)*lambda_d*temperature*rho[0]*rho[1]/(rho[0]+rho[1]);
-    xi(i) = std::sqrt(pref) * RandomNormal(0., 1., engine);
+    xi(i) = RandomNormal(0., std::sqrt(pref), engine);
     xi(i+nvel) = - xi(i);
   }
 
@@ -125,8 +125,8 @@ Array1D<Real,0,2*nvel> thermal_noise(const Array<Real,2>& rho, const RandomEngin
   for (int i=AMREX_SPACEDIM+1; i<nvel; ++i) {
     const Real pref = (2.-lambda_f[i])*lambda_f[i]*b[i]*temperature/cs2*rho[0];
     const Real preg = (2.-lambda_g[i])*lambda_g[i]*b[i]*temperature/cs2*rho[1];
-    xi(i) = std::sqrt(pref) * RandomNormal(0., 1., engine);
-    xi(i+nvel) = std::sqrt(preg) * RandomNormal(0., 1., engine);
+    xi(i) = RandomNormal(0., std::sqrt(pref), engine);
+    xi(i+nvel) = RandomNormal(0., std::sqrt(preg), engine);
   }
 
   return xi;
