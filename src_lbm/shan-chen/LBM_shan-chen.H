@@ -91,13 +91,13 @@ Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<Rea
     phi(2) = rho*a[1];
     phi(3) = rho*a[2];
 
-    /* stress modes */
-    phi(4) = rho*(a[0]*v[0] + a[1]*v[1] + a[2]*v[2]);
-    phi(5) = rho*(2.*a[0]*v[0] - a[1]*v[1] - a[2]*v[2]);
-    phi(6) = rho*(a[1]*v[1] - a[2]*v[2]);
-    phi(7) = 0.5*rho*(a[0]*v[1]+a[1]*v[0]);
-    phi(8) = 0.5*rho*(a[1]*v[2]+a[2]*v[1]);
-    phi(9) = 0.5*rho*(a[2]*v[0]+a[0]*v[2]);
+    /* stress modes [Belardinelli et al. Eq. (31)] */
+    phi(4) = 2.*rho*(a[0]*v[0] + a[1]*v[1] + a[2]*v[2]);
+    phi(5) = 2.*rho*(2.*a[0]*v[0] - a[1]*v[1] - a[2]*v[2]);
+    phi(6) = 2.*rho*(a[1]*v[1] - a[2]*v[2]);
+    phi(7) = rho*(a[0]*v[1]+a[1]*v[0]);
+    phi(8) = rho*(a[1]*v[2]+a[2]*v[1]);
+    phi(9) = rho*(a[2]*v[0]+a[0]*v[2]);
 
     /* kinetic modes  */
     for (int i=10; i<nvel; ++i) phi(i) = 0.0;
