@@ -137,13 +137,18 @@ void collide(int x, int y, int z,
 	     const Array4<Real>& f,
 	     const Array4<Real>& g,
        const Array4<Real>& h,
+       const Array4<Real>& ref, // reference densities
        const RandomEngine& engine) {
   Array1D<Real,0,nvel> mf, mg, mfEq, mgEq;
   Array<Array1D<Real,0,nvel>,2> phi;
   Array1D<Real,0,2*nvel> xi;
-  Array<Real,2> rho;
+  Array<Real,2> rho, rho_ref;
   Array<RealVect,2> v, a;
   RealVect v_b, a_b;
+
+  // reference densities
+  rho_ref[0] = ref(x,y,z,0);
+  rho_ref[1] = ref(x,y,z,1);
 
   mf = moments(x,y,z,f);
   mg = moments(x,y,z,g);
@@ -163,7 +168,7 @@ void collide(int x, int y, int z,
   mfEq = equilibrium_moments(rho[0], v_b+0.5*a_b);
   mgEq = equilibrium_moments(rho[1], v_b+0.5*a_b);
 
-  xi = thermal_noise(rho, engine); // TODO: need to use the reference densities [uschill 2025/01/12]
+  xi = thermal_noise(rho_ref, engine);
 
   phi = force_moments(rho, v, a, xi);
   Array1D<Real,0,nvel> const& phif = phi[0];
@@ -199,8 +204,9 @@ void collide_stream(int x, int y, int z,
 		    const Array4<Real>& fOld,  const Array4<Real>& gOld,
 		    const Array4<Real>& fNew,  const Array4<Real>& gNew,
 		    const Array4<Real>& h,
+        const Array4<Real>& ref,
         const RandomEngine& engine) {
-  collide(x, y, z, fOld, gOld, h, engine); // collide populations on current site
+  collide(x, y, z, fOld, gOld, h, ref, engine); // collide populations on current site
   stream_push(x, y, z, fOld, gOld, fNew, gNew); // push populations to neighbors
 }
 
@@ -208,7 +214,7 @@ void collide_stream(int x, int y, int z,
 inline void collide_stream(const Geometry& geom,
 			   MultiFab& fold, MultiFab& gold,
 			   MultiFab& fnew, MultiFab& gnew,
-			   MultiFab& hydrovs) {
+			   MultiFab& hydrovs, MultiFab& refstate) {
   const int halo = 1; // need to push from first halo layer into domain
   fold.FillBoundary(geom.periodicity());
   gold.FillBoundary(geom.periodicity());
@@ -219,9 +225,10 @@ inline void collide_stream(const Geometry& geom,
     const Array4<Real>& fNew = fnew.array(mfi);
     const Array4<Real>& gNew = gnew.array(mfi);
     const Array4<Real>& h = hydrovs.array(mfi);
+    const Array4<Real>& ref = refstate.array(mfi);
     const Box& valid_box = mfi.growntilebox(halo);
     ParallelForRNG(valid_box, [=] AMREX_GPU_DEVICE(int x, int y, int z, const RandomEngine& engine) {
-      collide_stream(x, y, z, fOld, gOld, fNew, gNew, h, engine);
+      collide_stream(x, y, z, fOld, gOld, fNew, gNew, h, ref, engine);
     });
   }
   MultiFab::Swap(fold, fnew, 0, 0, nvel, 0);
@@ -292,8 +299,8 @@ inline void hydrovars(MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
 inline void LBM_timestep(const Geometry& geom,
 			 MultiFab& fold, MultiFab& gold,
 			 MultiFab& fnew, MultiFab& gnew,
-			 MultiFab& hydrovs) {
-  collide_stream(geom, fold, gold, fnew, gnew, hydrovs);
+			 MultiFab& hydrovs, MultiFab& refstate) {
+  collide_stream(geom, fold, gold, fnew, gnew, hydrovs, refstate);
   hydrovars(fold, gold, hydrovs);
 }
 

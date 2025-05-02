@@ -90,6 +90,7 @@ void main_driver(const char* argv) {
   MultiFab gold(ba, dm, nvel, nghost);
   MultiFab gnew(ba, dm, nvel, nghost);
   MultiFab hydrovs(ba, dm, 2*nvel, nghost);
+  MultiFab refstate(ba, dm, 2, nghost);
   MultiFab noise(ba, dm, 2*nvel, nghost);
 
   // set up StructFact
@@ -107,9 +108,14 @@ void main_driver(const char* argv) {
 
   unit_tests(geom, hydrovs);
 
+  // TODO: for nonhomogeneous systems perform equilibration before copying reference state
+
+  // copy the reference state
+  ParallelCopy(refstate, hydrovs, 0, 0, 2);
+
   // TIMESTEP
   for (int step=1; step <= nsteps; ++step) {
-    LBM_timestep(geom, fold, gold, fnew, gnew, hydrovs);
+    LBM_timestep(geom, fold, gold, fnew, gnew, hydrovs, refstate);
     if (plot_SF > 0) structFact.FortStructure(hydrovs);
     if (plot_int > 0 && step%plot_int ==0) {
       WriteOutput(step, geom, hydrovs, structFact);
