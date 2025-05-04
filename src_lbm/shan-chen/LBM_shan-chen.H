@@ -67,7 +67,7 @@ Real laplacian(int x, int y, int z, const Array4<Real>& field, int icomp) {
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia) {
   Array<Array1D<Real,0,nvel>,2> phia;
-  Array<RealVect,2> vmod;
+  Array<RealVect,2> vr;
 
   for (int i=0; i<2; ++i) {
     int j = (i+1)%2;
@@ -76,11 +76,12 @@ Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<Rea
     for (int k=0; k<AMREX_SPACEDIM; ++k) xi[k] = xia(i*nvel+k+1);
 
     // express v, v' in terms of v̄, v̄' [Belardinelli et al. Eq. (71)]
-    vmod[i] = va[i] + 0.5*( aa[i] - lambda_d*rhoa[j]/(rhoa[i]+rhoa[j])*(va[i]-va[j]+0.5*(aa[i]-aa[j])) + (1-0.5*lambda_d)*xi[i]/rhoa[i] );
+    // [uschill 2025/05/04: xi is the lattice noise, hence the prefactor (1-0.5*lambda_d) is absorbed]
+    vr[i] = va[i] + 0.5*( aa[i] - lambda_d*rhoa[j]/(rhoa[i]+rhoa[j])*(va[i]-va[j]+0.5*(aa[i]-aa[j])) + xi[i]/rhoa[i] );
 
     Array1D<Real,0,nvel>& phi = phia[i];
     Real const& rho = rhoa[i];
-    RealVect const& v = vmod[i];
+    RealVect const& v = vr[i];
     RealVect const& a = aa[i];
 
     /* density mode */
