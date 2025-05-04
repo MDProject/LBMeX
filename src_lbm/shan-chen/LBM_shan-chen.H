@@ -38,7 +38,7 @@ lambda_g = { 0.,
   lambda_e, lambda_e, lambda_e
 };
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 RealVect gradient(int x, int y, int z, const Array4<Real>& field, int icomp) {
   RealVect gradient = { 0.0, 0.0, 0.0 };
   for (int i=0; i<nvel; i++) {
@@ -52,7 +52,7 @@ RealVect gradient(int x, int y, int z, const Array4<Real>& field, int icomp) {
   return gradient;
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 Real laplacian(int x, int y, int z, const Array4<Real>& field, int icomp) {
   Real laplacian = 0.0;
   for (int i=0; i<nvel; i++) {
@@ -64,7 +64,7 @@ Real laplacian(int x, int y, int z, const Array4<Real>& field, int icomp) {
   return laplacian;
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia) {
   Array<Array1D<Real,0,nvel>,2> phia;
   Array<RealVect,2> vmod;
@@ -107,7 +107,7 @@ Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<Rea
   return phia;
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 Array1D<Real,0,2*nvel> thermal_noise(const Array<Real,2>& rho, const RandomEngine& engine) {
   Array1D<Real,0,2*nvel> xi = {};
 
@@ -132,7 +132,7 @@ Array1D<Real,0,2*nvel> thermal_noise(const Array<Real,2>& rho, const RandomEngin
   return xi;
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 void collide(int x, int y, int z,
 	     const Array4<Real>& f,
 	     const Array4<Real>& g,
@@ -185,7 +185,7 @@ void collide(int x, int y, int z,
 }
 
 // stream from \vec{x} to \vec{x}+\vec{c}_i (push scheme)
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 void stream_push(int x, int y, int z,
 		 const Array4<Real>& fOld, const Array4<Real>& gOld,
 		 const Array4<Real>& fNew, const Array4<Real>& gNew) {
@@ -199,7 +199,7 @@ void stream_push(int x, int y, int z,
 }
 
 // collide and stream (push scheme)
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 void collide_stream(int x, int y, int z,
 		    const Array4<Real>& fOld,  const Array4<Real>& gOld,
 		    const Array4<Real>& fNew,  const Array4<Real>& gNew,
@@ -211,7 +211,8 @@ void collide_stream(int x, int y, int z,
 }
 
 // apply fluctuating lattice Boltzmann equation for whole lattice
-inline void collide_stream(const Geometry& geom,
+AMREX_FORCE_INLINE
+void collide_stream(const Geometry& geom,
 			   MultiFab& fold, MultiFab& gold,
 			   MultiFab& fnew, MultiFab& gnew,
 			   MultiFab& hydrovs, MultiFab& refstate) {
@@ -235,7 +236,7 @@ inline void collide_stream(const Geometry& geom,
   MultiFab::Swap(gold, gnew, 0, 0, nvel, 0);
 }
 
-inline Vector<std::string> hydrovars_names(const int numVars) {
+Vector<std::string> hydrovars_names(const int numVars) {
   Vector<std::string> var_names(numVars);
   std::string name;
   int cnt = 0;
@@ -266,7 +267,7 @@ inline Vector<std::string> hydrovars_names(const int numVars) {
   return var_names;
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 void hydrovars(int x, int y, int z,
 	       const Array4<Real>& f,
 	       const Array4<Real>& g,
@@ -286,7 +287,8 @@ void hydrovars(int x, int y, int z,
 }
 
 // calculate hydrodynamic moments for whole lattice
-inline void hydrovars(MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
+AMREX_FORCE_INLINE
+void hydrovars(MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
   auto const & f = mf.arrays();
   auto const & g = mg.arrays();
   auto const & h = hydrovs.arrays();
@@ -296,7 +298,8 @@ inline void hydrovars(MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
 }
 
 // LB timestep for whole lattice
-inline void LBM_timestep(const Geometry& geom,
+AMREX_FORCE_INLINE
+void LBM_timestep(const Geometry& geom,
 			 MultiFab& fold, MultiFab& gold,
 			 MultiFab& fnew, MultiFab& gnew,
 			 MultiFab& hydrovs, MultiFab& refstate) {
@@ -305,7 +308,7 @@ inline void LBM_timestep(const Geometry& geom,
 }
 
 // homogeneous mixture of C1 and C2 with random concentration fluctuations
-inline void LBM_init_mixture(MultiFab& mf,
+void LBM_init_mixture(MultiFab& mf,
 			     MultiFab& mg,
 			     MultiFab& hydrovs) {
   const Real rho = 0.5*(::rho_hi+::rho_lo);
@@ -324,7 +327,7 @@ inline void LBM_init_mixture(MultiFab& mf,
 }
 
 // flat interface between C1 and C2
-inline void LBM_init_stripe(const Real frac,
+void LBM_init_stripe(const Real frac,
             const Geometry& geom,
 				    MultiFab& mf,
 				    MultiFab& mg,
@@ -348,7 +351,7 @@ inline void LBM_init_stripe(const Real frac,
 }
 
 // binary droplet of C1 and C2
-inline void LBM_init_droplet(const Real dfrac,
+void LBM_init_droplet(const Real dfrac,
 			     const Geometry& geom,
 			     MultiFab& mf,
 			     MultiFab& mg,
@@ -373,7 +376,7 @@ inline void LBM_init_droplet(const Real dfrac,
   hydrovars(mf, mg, hydrovs);
 }
 
-inline void LBM_init(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
+void LBM_init(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
   if (init_cond == "mixture") LBM_init_mixture(mf, mg, hydrovs);
   else if (init_cond == "stripe") LBM_init_stripe(init_frac, geom, mf, mg, hydrovs);
   else if (init_cond == "droplet") LBM_init_droplet(init_frac, geom, mf, mg, hydrovs);
