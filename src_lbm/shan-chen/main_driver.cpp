@@ -102,7 +102,7 @@ void main_driver(const char* argv) {
   StructFact structFact(ba, dm, var_names, var_scaling, pairA, pairB);
 
   // INITIALIZE
-  LBM_init(geom, fold, gold, hydrovs);
+  LBM_init(geom, fold, gold, hydrovs, refstate);
   if (plot_int > 0) WriteOutput(0, geom, hydrovs, structFact);
   Print() << "LB initialized lattice " << domain <<"\n" << ba << dm << std::endl;
 
