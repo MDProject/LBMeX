@@ -65,50 +65,6 @@ Real laplacian(int x, int y, int z, const Array4<Real>& field, int icomp) {
 }
 
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
-Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia) {
-  Array<Array1D<Real,0,nvel>,2> phia;
-  Array<RealVect,2> vr;
-
-  for (int i=0; i<2; ++i) {
-    int j = (i+1)%2;
-
-    RealVect xi;
-    for (int k=0; k<AMREX_SPACEDIM; ++k) xi[k] = xia(i*nvel+k+1);
-
-    // express v, v' in terms of v̄, v̄' [Belardinelli et al. Eq. (71)]
-    // [uschill 2025/05/04: xi is the lattice noise, hence the prefactor (1-0.5*lambda_d) is absorbed]
-    vr[i] = va[i] + 0.5*( aa[i] - lambda_d*rhoa[j]/(rhoa[i]+rhoa[j])*(va[i]-va[j]+0.5*(aa[i]-aa[j])) + xi[i]/rhoa[i] );
-
-    Array1D<Real,0,nvel>& phi = phia[i];
-    Real const& rho = rhoa[i];
-    RealVect const& v = vr[i];
-    RealVect const& a = aa[i];
-
-    /* density mode */
-    phi(0) = 0.0;
-
-    /* momentum modes */
-    phi(1) = rho*a[0];
-    phi(2) = rho*a[1];
-    phi(3) = rho*a[2];
-
-    /* stress modes [Belardinelli et al. Eq. (31)] */
-    phi(4) = 2.*rho*(a[0]*v[0] + a[1]*v[1] + a[2]*v[2]);
-    phi(5) = 2.*rho*(2.*a[0]*v[0] - a[1]*v[1] - a[2]*v[2]);
-    phi(6) = 2.*rho*(a[1]*v[1] - a[2]*v[2]);
-    phi(7) = rho*(a[0]*v[1]+a[1]*v[0]);
-    phi(8) = rho*(a[1]*v[2]+a[2]*v[1]);
-    phi(9) = rho*(a[2]*v[0]+a[0]*v[2]);
-
-    /* kinetic modes  */
-    for (int i=10; i<nvel; ++i) phi(i) = 0.0;
-
-  }
-
-  return phia;
-}
-
-AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 Array1D<Real,0,2*nvel> thermal_noise(const Array<Real,2>& rho, const RandomEngine& engine) {
   Array1D<Real,0,2*nvel> xi = {};
 
@@ -134,6 +90,60 @@ Array1D<Real,0,2*nvel> thermal_noise(const Array<Real,2>& rho, const RandomEngin
 }
 
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+Array<RealVect,2> transform_velocity(Array<Real,2> const& rho, Array<RealVect,2> const& v, Array<RealVect,2> const& a, Array1D<Real,0,2*nvel> const& xia) {
+  Array<RealVect, 2> vr;
+  RealVect xi;
+
+  // express v, v' in terms of v̄, v̄' [Belardinelli et al. Eq. (71)]
+  // [uschill 2025/05/04: xi is the lattice noise, hence the prefactor (1-0.5*lambda_d) is absorbed]
+  for (int i=0; i<2; ++i) {
+    int j = (i+1)%2;
+    for (int k=0; k<AMREX_SPACEDIM; ++k) xi[k] = xia(i*nvel+1+k);
+    vr[i] = v[i] + 0.5*(a[i] - lambda_d*rho[j]/(rho[i]+rho[j])*(v[i]-v[j]+0.5*(a[i]-a[j])) + xi/rho[i]);
+  }
+
+  return vr;
+}
+
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia) {
+  Array<Array1D<Real,0,nvel>,2> phia;
+  Array<RealVect,2> vr;
+
+  vr = transform_velocity(rhoa, va, aa, xia);
+
+  for (int i=0; i<2; ++i) {
+    Array1D<Real,0,nvel>& phi = phia[i];
+
+    Real const& rho = rhoa[i];
+    RealVect const& v = vr[i];
+    RealVect const& a = aa[i];
+
+    /* density mode */
+    phi(0) = 0.0;
+
+    /* momentum modes */
+    phi(1) = rho*a[0];
+    phi(2) = rho*a[1];
+    phi(3) = rho*a[2];
+
+    /* stress modes [Belardinelli et al. Eq. (31)] */
+    phi(4) = 2.*rho*(a[0]*v[0] + a[1]*v[1] + a[2]*v[2]);
+    phi(5) = 2.*rho*(2.*a[0]*v[0] - a[1]*v[1] - a[2]*v[2]);
+    phi(6) = 2.*rho*(a[1]*v[1] - a[2]*v[2]);
+    phi(7) = rho*(a[0]*v[1]+a[1]*v[0]);
+    phi(8) = rho*(a[1]*v[2]+a[2]*v[1]);
+    phi(9) = rho*(a[2]*v[0]+a[0]*v[2]);
+
+    /* kinetic modes */
+    for (int i=10; i<nvel; ++i) phi(i) = 0.0;
+
+  }
+
+  return phia;
+}
+
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 void collide(int x, int y, int z,
 	     const Array4<Real>& f,
 	     const Array4<Real>& g,
@@ -150,6 +160,8 @@ void collide(int x, int y, int z,
   // reference densities
   rho_ref[0] = ref(x,y,z,0);
   rho_ref[1] = ref(x,y,z,1);
+
+  xi = thermal_noise(rho_ref, engine);
 
   mf = moments(x,y,z,f);
   mg = moments(x,y,z,g);
@@ -168,8 +180,6 @@ void collide(int x, int y, int z,
 
   mfEq = equilibrium_moments(rho[0], v_b+0.5*a_b);
   mgEq = equilibrium_moments(rho[1], v_b+0.5*a_b);
-
-  xi = thermal_noise(rho_ref, engine);
 
   phi = force_moments(rho, v, a, xi);
   Array1D<Real,0,nvel> const& phif = phi[0];
