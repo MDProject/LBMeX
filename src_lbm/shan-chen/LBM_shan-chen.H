@@ -108,15 +108,12 @@ Array<RealVect,2> transform_velocity(Array<Real,2> const& rho, Array<RealVect,2>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia) {
   Array<Array1D<Real,0,nvel>,2> phia;
-  Array<RealVect,2> vr;
-
-  vr = transform_velocity(rhoa, va, aa, xia);
 
   for (int i=0; i<2; ++i) {
     Array1D<Real,0,nvel>& phi = phia[i];
 
     Real const& rho = rhoa[i];
-    RealVect const& v = vr[i];
+    RealVect const& v = va[i];
     RealVect const& a = aa[i];
 
     /* density mode */
@@ -154,7 +151,7 @@ void collide(int x, int y, int z,
   Array<Array1D<Real,0,nvel>,2> phi;
   Array1D<Real,0,2*nvel> xi;
   Array<Real,2> rho, rho_ref;
-  Array<RealVect,2> v, a;
+  Array<RealVect,2> v, a, vr;
   RealVect v_b, a_b;
 
   // reference densities
@@ -175,13 +172,15 @@ void collide(int x, int y, int z,
   a[0] = -G*cs2*gradient(x,y,z,h,1);
   a[1] = -G*cs2*gradient(x,y,z,h,0);
 
+  vr = transform_velocity(rho, v, a, xi);
+
   v_b = (rho[0]*v[0]+rho[1]*v[1])/(rho[0]+rho[1]);
   a_b = (rho[0]*a[0]+rho[1]*a[1])/(rho[0]+rho[1]);
 
   mfEq = equilibrium_moments(rho[0], v_b+0.5*a_b);
   mgEq = equilibrium_moments(rho[1], v_b+0.5*a_b);
 
-  phi = force_moments(rho, v, a, xi);
+  phi = force_moments(rho, vr, a, xi);
   Array1D<Real,0,nvel> const& phif = phi[0];
   Array1D<Real,0,nvel> const& phig = phi[1];
 
