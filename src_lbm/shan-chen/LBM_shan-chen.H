@@ -333,6 +333,7 @@ void hydrovars(int x, int y, int z,
 // calculate hydrodynamic moments for whole lattice
 AMREX_FORCE_INLINE
 void hydrovars(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab& hydrovs, MultiFab& refstate) {
+  const int halo=1;
   mf.FillBoundary(geom.periodicity());
   mg.FillBoundary(geom.periodicity());
   refstate.FillBoundary(geom.periodicity());
@@ -341,9 +342,10 @@ void hydrovars(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab& hydro
     auto const & g = mg.array(mfi);
     auto const & h = hydrovs.array(mfi);
     auto const & ref = refstate.array(mfi);
-    const Box& valid_box = mfi.growntilebox(1);
-    ParallelForRNG(valid_box, [=] AMREX_GPU_DEVICE(int x, int y, int z, const RandomEngine& engine) {
-      densities(x+1, y+1, z+1, f, g, h); // make densities available for gradients
+    ParallelFor(mfi.growntilebox(halo), [=] AMREX_GPU_DEVICE(int x, int y, int z) {
+      densities(x, y, z, f, g, h);
+    });
+    ParallelForRNG(mfi.tilebox(), [=] AMREX_GPU_DEVICE(int x, int y, int z, const RandomEngine& engine) {
       hydrovars(x, y, z, f, g, h, ref, engine);
     });
   }
