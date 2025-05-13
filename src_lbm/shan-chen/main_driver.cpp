@@ -5,6 +5,7 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_PlotFileUtil.H>
 #include <StructFact.H>
+#include "AMReX_FileIO.H"
 
 using namespace amrex;
 
@@ -12,11 +13,11 @@ using namespace amrex;
 #include "LBM_tests.H"
 
 // default grid parameters
-IntVect domain_size(16);
-IntVect max_box_size(8);
+IntVect domain_size(6); // 16
+IntVect max_box_size(3); // 8
 
 // default time stepping parameters
-int nsteps = 8;//400000;
+int nsteps = 2;//5;//400000;
 
 // default output parameters
 int plot_SF = 50;
@@ -81,6 +82,9 @@ int main(int argc, char* argv[]) {
 
   // INITIALIZE
   LBM_init(geom, fold, gold, hydrovs);
+
+  PrintMultiFabComp(fold, 3, 0);
+
   if (::plot_int > 0) WriteOutput(0, geom, hydrovs, structFact);
   Print() << "LB initialized lattice " << domain <<"\n" << ba << dm << std::endl;
 
@@ -92,6 +96,8 @@ int main(int argc, char* argv[]) {
     if (plot_SF > 0 && step >= plot_SF_start && step%plot_SF == 0) structFact.FortStructure(hydrovs, 0);
     // not the hydrovs, but real hydrovars??? 
     if (::plot_int > 0 && step%(::plot_int) == 0) {
+      PrintMultiFabComp(fold, 3, 0);
+
       WriteOutput(step, geom, hydrovs, structFact);
       Print() << "\t**************************************\t" << std::endl;
       Print() << "\tLB step " << step << std::endl;
