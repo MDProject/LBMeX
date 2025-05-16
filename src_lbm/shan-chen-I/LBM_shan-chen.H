@@ -107,12 +107,12 @@ Array<RealVect,2> transform_velocity(Array<Real,2> const& rho, Array<RealVect,2>
     for (int k=0; k<AMREX_SPACEDIM; ++k) xi[k] = xia(i*nvel+1+k);
     vr[i] = v[i] + 0.5*(a[i] - lambda_d*rho[j]/(rho[i]+rho[j])*(v[i]-v[j]+0.5*(a[i]-a[j])) + xi/rho[i]);
   }
-  if(tag){
+  /*if(tag){
     printf("xi in transform_velocity() = %f\t%f\n", xi[0], xi[1]);
     printf("density in transform_velocity() = %f\t%f\n", rho[0], rho[1]);
-    printf("velocity in transform_velocity() = vf=(%f,%f,%f),\tvg=(%f,%f,%f)\n", vr[0][0], vr[0][1], vr[0][2], vr[1][0], vr[1][1], vr[1][2]);
+    printf("real velocity in transform_velocity() = vf=(%f,%f,%f),\tvg=(%f,%f,%f)\n", vr[0][0], vr[0][1], vr[0][2], vr[1][0], vr[1][1], vr[1][2]);
     printf("acceleration in transform_velocity() = af=(%f,%f,%f),\tag=(%f,%f,%f)\n", a[0][0], a[0][1], a[0][2], a[1][0], a[1][1], a[1][2]);
-  }
+  }*/
   return vr;
 }
 
@@ -137,9 +137,9 @@ Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<Rea
     if(tag){
       for(int n=0; n<3; ++n) {
         if(i==0){
-          printf("vf(%d) = %.8f\t", n, v[n]);
+          printf("uf(%d) = %.8f\t", n, v[n]);
         }else{
-          printf("vg(%d) = %.8f\t", n, v[n]);
+          printf("ug(%d) = %.8f\t", n, v[n]);
         }
       }
     }
@@ -187,9 +187,9 @@ void collide(int x, int y, int z,
   rho_ref[1] = ref(x,y,z,1);
 
   xi = thermal_noise(rho_ref, engine);
-  if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]){
+  /*if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]){
     printf("ref density in collide() = %.8f\t%.8f\n", rho_ref[0], rho_ref[1]);
-  }
+  }*/
 
   mf = moments(x,y,z,f);
   mg = moments(x,y,z,g);
@@ -211,7 +211,7 @@ void collide(int x, int y, int z,
 
 
   if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]){
-    printf("fluid f,g velocity in collide() = \n");
+    printf("fluid f,g real velocity in collide() = \n");
     phi = force_moments(rho, v, a, xi, true);
     printf("\n");
   }else{
@@ -225,9 +225,9 @@ void collide(int x, int y, int z,
     printf("moments in collide() = \n");
     for(int i=0; i<nvel; ++i) {
       printf("mfEq(%d) = %.8f\t", i, mfEq(i));
-      printf("phif(%d) = %.8f\t", i, phif(i));
+      printf("mPhif(%d) = %.8f\t", i, phif(i));
       printf("mgEq(%d) = %.8f\t", i, mgEq(i));
-      printf("phig(%d) = %.8f\t", i, phig(i));
+      printf("mPhig(%d) = %.8f\t", i, phig(i));
     }
     printf("\ndensity in collide() = \n");
     printf("h(%d) = %.8f\t", 0, h(x,y,z,0));
@@ -235,7 +235,7 @@ void collide(int x, int y, int z,
     printf("\ncenter-of-mass velocity & acceleration in collide() = \n");
     RealVect const& vr_b = v_b+0.5*a_b;
     for(int i=0; i<3; ++i) {
-      printf("v_b(%d) = %.8f\t", i, vr_b[i]);
+      printf("ub(%d) = %.8f\t", i, vr_b[i]);
       printf("af(%d) = %.8f\t", i, a[0][i]);
       printf("ag(%d) = %.8f\t", i, a[1][i]);
     }
@@ -387,8 +387,8 @@ void hydrovars(int x, int y, int z,
       printf("hydro_g(%d) = %.8f\t", i, g(x,y,z,i));
     }
     printf("\ndensity after streaming in hydrovars() = \n");
-    printf("hydro(%d) = %.8f\t", 0, h(x,y,z,0));
-    printf("hydro(%d) = %.8f\t", 1, h(x,y,z,1));
+    printf("hydro_h(%d) = %.8f\t", 0, h(x,y,z,0));
+    printf("hydro_h(%d) = %.8f\t", 1, h(x,y,z,1));
     printf("\n");
   }
 }

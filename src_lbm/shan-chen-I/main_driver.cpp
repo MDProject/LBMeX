@@ -17,7 +17,7 @@ IntVect domain_size(6);
 IntVect max_box_size(3);
 
 // default time stepping parameters
-int nsteps = 3;//5;
+int nsteps = 5;
 
 // default output parameters
 int plot_SF = 0;
