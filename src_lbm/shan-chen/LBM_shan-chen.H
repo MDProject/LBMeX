@@ -3,7 +3,7 @@
 
 #include "LBM_d3q19.H"
 
-const IntVect print_grid(0, 0, 0); // grid to print out
+const IntVect print_grid(-1, -1, -1); // grid to print out
 
 // default initial condition
 std::string init_cond = "mixture";
@@ -93,9 +93,9 @@ Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<Rea
     if(tag){
       for(int n=0; n<3; ++n) {
         if(i==0){
-          printf("vf(%d) = %.8f\t", n, v[n]);
+          printf("uf(%d) = %.8f\t", n, v[n]); // real velocity
         }else{
-          printf("vg(%d) = %.8f\t", n, v[n]);
+          printf("ug(%d) = %.8f\t", n, v[n]);
         }
       }
     }
@@ -165,8 +165,8 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void collide(int x, int y, int z,
 	     const Array4<Real>& f,
 	     const Array4<Real>& g,
-       const Array4<Real>& h/*,
-       const RandomEngine& engine*/) {
+       const Array4<Real>& h,
+       const RandomEngine& engine) {
   Array1D<Real,0,nvel> mf, mg, mfEq, mgEq;
   Array<Array1D<Real,0,nvel>,2> phi;
   Array1D<Real,0,2*nvel> xi;
@@ -208,7 +208,7 @@ void collide(int x, int y, int z,
   xi = thermal_noise();//thermal_noise(rho, engine); // TODO: need to use the reference densities [uschill 2025/01/12]
 
   if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]){
-    printf("fluid f,g velocity in collide() = \n");
+    printf("fluid f,g real velocity in collide() = \n");
     phi = force_moments(rho, v, a, xi, true);
     printf("\n");
   }else{
@@ -222,9 +222,9 @@ void collide(int x, int y, int z,
     printf("moments in collide() = \n");
     for(int i=0; i<nvel; ++i) {
       printf("mfEq(%d) = %.8f\t", i, mfEq(i));
-      printf("phif(%d) = %.8f\t", i, phif(i));
+      printf("mPhif(%d) = %.8f\t", i, phif(i));
       printf("mgEq(%d) = %.8f\t", i, mgEq(i));
-      printf("phig(%d) = %.8f\t", i, phig(i));
+      printf("mPhig(%d) = %.8f\t", i, phig(i));
     }
     printf("\ndensity in collide() = \n");
     printf("h(%d) = %.8f\t", 0, h(x,y,z,0));
@@ -232,7 +232,7 @@ void collide(int x, int y, int z,
     printf("\ncenter-of-mass velocity & acceleration in collide() = \n");
     RealVect const& vr_b = v_b+0.5*a_b;
     for(int i=0; i<3; ++i) {
-      printf("v_b(%d) = %.8f\t", i, vr_b[i]);
+      printf("ub(%d) = %.8f\t", i, vr_b[i]);
       printf("af(%d) = %.8f\t", i, a[0][i]);
       printf("ag(%d) = %.8f\t", i, a[1][i]);
     }
@@ -288,9 +288,9 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void collide_stream(int x, int y, int z,
 		    const Array4<Real>& fOld,  const Array4<Real>& gOld,
 		    const Array4<Real>& fNew,  const Array4<Real>& gNew,
-		    const Array4<Real>& h/*,
-        const RandomEngine& engine*/) {
-  collide(x, y, z, fOld, gOld, h/*, engine*/); // collide populations on current site
+		    const Array4<Real>& h,
+        const RandomEngine& engine) {
+  collide(x, y, z, fOld, gOld, h, engine); // collide populations on current site
   stream_push(x, y, z, fOld, gOld, fNew, gNew); // push populations to neighbors
 }
 
@@ -303,7 +303,7 @@ inline void collide_stream(const Geometry& geom,
   fold.FillBoundary(geom.periodicity());
   gold.FillBoundary(geom.periodicity());
   hydrovs.FillBoundary(geom.periodicity());
-  /*for (MFIter mfi(fold); mfi.isValid(); ++mfi) {
+  for (MFIter mfi(fold); mfi.isValid(); ++mfi) {
     const Array4<Real>& fOld = fold.array(mfi);
     const Array4<Real>& gOld = gold.array(mfi);
     const Array4<Real>& fNew = fnew.array(mfi);
@@ -316,9 +316,9 @@ inline void collide_stream(const Geometry& geom,
       collide_stream(x, y, z, fOld, gOld, fNew, gNew, h, engine);
     });
     //printf("ParallelFor loop end \n");
-  }*/
+  }
 
-  auto const & fOld = fold.arrays();
+  /*auto const & fOld = fold.arrays();
   auto const & gOld = gold.arrays();
   auto const & fNew = fnew.arrays();
   auto const & gNew = gnew.arrays();
@@ -328,7 +328,7 @@ inline void collide_stream(const Geometry& geom,
     collide_stream(x, y, z,
       fOld[nbx], gOld[nbx],
       fNew[nbx], gNew[nbx], h[nbx]);
-  });
+  });*/
 
   MultiFab::Swap(fold, fnew, 0, 0, nvel, 0);
   MultiFab::Swap(gold, gnew, 0, 0, nvel, 0);
@@ -386,8 +386,8 @@ void hydrovars(int x, int y, int z,
       printf("hydro_g(%d) = %.8f\t", i, g(x,y,z,i));
     }
     printf("\ndensity after streaming in hydrovars() = \n");
-    printf("hydro(%d) = %.8f\t", 0, h(x,y,z,0));
-    printf("hydro(%d) = %.8f\t", 1, h(x,y,z,1));
+    printf("hydro_h(%d) = %.8f\t", 0, h(x,y,z,0));
+    printf("hydro_h(%d) = %.8f\t", 1, h(x,y,z,1));
     printf("\n");
   }
 }
@@ -397,7 +397,7 @@ inline void hydrovars(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab
   auto const & f = mf.arrays();
   auto const & g = mg.arrays();
   auto const & h = hydrovs.arrays();
-  ParallelFor(hydrovs, IntVect(0), [=] AMREX_GPU_DEVICE(int nbx, int x, int y, int z) {
+  ParallelFor(hydrovs, IntVect(2), [=] AMREX_GPU_DEVICE(int nbx, int x, int y, int z) {
     hydrovars(x, y, z, f[nbx], g[nbx], h[nbx]);
   });
   //hydrovs.FillBoundary(geom.periodicity());
