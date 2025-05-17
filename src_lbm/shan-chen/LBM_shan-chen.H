@@ -26,7 +26,7 @@ AMREX_GPU_CONSTANT Array<Real,nvel> const
 lambda_f = { 0.,
   lambda_d, lambda_d, lambda_d,
   lambda_b, lambda_s, lambda_s, lambda_s, lambda_s, lambda_s,
-  lambda_o, lambda_o, lambda_o, lambda_o, lambda_o,
+  lambda_o, lambda_o, lambda_o, lambda_o, lambda_o, lambda_o,
   lambda_e, lambda_e, lambda_e
 };
 
@@ -34,7 +34,7 @@ AMREX_GPU_CONSTANT Array<Real,nvel> const
 lambda_g = { 0.,
   lambda_d, lambda_d, lambda_d,
   lambda_b, lambda_s, lambda_s, lambda_s, lambda_s, lambda_s,
-  lambda_o, lambda_o, lambda_o, lambda_o, lambda_o,
+  lambda_o, lambda_o, lambda_o, lambda_o, lambda_o, lambda_o,
   lambda_e, lambda_e, lambda_e
 };
 
