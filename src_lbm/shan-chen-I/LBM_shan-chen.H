@@ -7,17 +7,17 @@ const IntVect print_grid(-1, -1, -1); // grid to print out
 
 
 // default initial condition
-std::string init_cond = "mixture";
+std::string init_cond = "droplet";
 
 AMREX_GPU_MANAGED Real G = 0.8;
 AMREX_GPU_MANAGED Real rho_hi = 1.;//2.3; // values reported by Belardinelli et al. [Phys. Rev. E 91, 023313 (2015)]
-AMREX_GPU_MANAGED Real rho_lo = 1.;//0.06;
+AMREX_GPU_MANAGED Real rho_lo = 0.;//0.06;
 AMREX_GPU_MANAGED Real sigma = 0.174; // interfacial tension
-AMREX_GPU_MANAGED Real alpha = 6; // interface width
+AMREX_GPU_MANAGED Real alpha = 0.001; // interface width
 
 AMREX_GPU_MANAGED Real temperature = 0.;//1e-5;
 
-AMREX_GPU_MANAGED Real init_frac = 0.5; // fractional size of droplet or stripe
+AMREX_GPU_MANAGED Real init_frac = 0.6; // fractional size of droplet or stripe
 
 AMREX_GPU_CONSTANT Real const lambda_d = 1.0;
 AMREX_GPU_CONSTANT Real const lambda_b = 1.0;
@@ -27,9 +27,9 @@ AMREX_GPU_CONSTANT Real const lambda_e = 1.0;
 
 AMREX_GPU_CONSTANT Array<Real,nvel> const
 lambda_f = { 0.,
-  lambda_d, lambda_d, lambda_d,
-  lambda_b, lambda_s, lambda_s, lambda_s, lambda_s, lambda_s,
-  lambda_o, lambda_o, lambda_o, lambda_o, lambda_o,
+  lambda_d, lambda_d, lambda_d, // diffusion
+  lambda_b, lambda_s, lambda_s, lambda_s, lambda_s, lambda_s, // bulk & shear viscosity
+  lambda_o, lambda_o, lambda_o, lambda_o, lambda_o, // odd & even functions
   lambda_e, lambda_e, lambda_e, lambda_e
 };
 
@@ -105,7 +105,8 @@ Array<RealVect,2> transform_velocity(Array<Real,2> const& rho, Array<RealVect,2>
   for (int i=0; i<2; ++i) {
     int j = (i+1)%2;
     for (int k=0; k<AMREX_SPACEDIM; ++k) xi[k] = xia(i*nvel+1+k);
-    vr[i] = v[i] + 0.5*(a[i] - lambda_d*rho[j]/(rho[i]+rho[j])*(v[i]-v[j]+0.5*(a[i]-a[j])) + xi/rho[i]);
+    RealVect xivel = (std::abs(rho[i]) > FLT_EPSILON) ? xi/rho[i] : RealVect(0.);
+    vr[i] = v[i] + 0.5*(a[i] - lambda_d*rho[j]/(rho[i]+rho[j])*(v[i]-v[j]+0.5*(a[i]-a[j])) + xivel);
   }
   /*if(tag){
     printf("xi in transform_velocity() = %f\t%f\n", xi[0], xi[1]);
@@ -459,7 +460,7 @@ void LBM_init_stripe(const Real frac,
   hydrovars(geom, mf, mg, hydrovs);
 }
 
-// binary droplet of C1 and C2
+// binary droplet of C1 and C2, f --> droplet, g --> background
 void LBM_init_droplet(const Real dfrac,
 			     const Geometry& geom,
 			     MultiFab& mf,
@@ -476,6 +477,7 @@ void LBM_init_droplet(const Real dfrac,
     const Real ry = y-box[1]/2;
     const Real rz = z-box[2]/2;
     const Real r = std::sqrt(rx*rx+ry*ry+rz*rz);
+    // tanh profile varying from [rho_lo] to [rho_hi];
     const Real rho = (::rho_hi-::rho_lo)*0.5*(1.+std::tanh((R-r)/std::sqrt(alpha))) + ::rho_lo;
     for (int i=0; i<nvel; i++) {
       f[nbx](x,y,z,i) = w[i]*rho;
@@ -488,6 +490,7 @@ void LBM_init_droplet(const Real dfrac,
 inline void LBM_init(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
   printf("LBM_init() called with 'init_cond' = %s \n", init_cond.c_str());
   if (init_cond == "mixture") {
+    Print() << "Initializing mixture of C1 and C2\n";
     LBM_init_mixture(geom, mf, mg, hydrovs);
   }
   else if (init_cond == "stripe") LBM_init_stripe(init_frac, geom, mf, mg, hydrovs);

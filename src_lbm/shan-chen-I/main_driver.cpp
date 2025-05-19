@@ -37,7 +37,7 @@ inline void ReadInput() {
   pp.query("max_grid_size_z", max_box_size[2]);
 
   // initial condition
-  init_cond = "mixture";
+  init_cond = "droplet";
   pp.query("init_cond", init_cond);
   pp.query("init_frac", init_frac);
 
@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
   Real strt_time = ParallelDescriptor::second();
 
   // read input parameters
-  ReadInput();
+  //ReadInput();
 
   plot_int = 1;
 
@@ -116,13 +116,16 @@ int main(int argc, char* argv[]) {
 
   // copy the reference state
   ParallelCopy(refstate, hydrovs, 0, 0, 2, IntVect(nghost), IntVect(nghost));
+  
+  PrintMultiFabComp(fold, 3, 0);
 
   // TIMESTEP
   for (int step=1; step <= nsteps; ++step) {
     LBM_timestep(geom, fold, gold, fnew, gnew, hydrovs, refstate);
+    PrintMultiFabComp(fold, 3, 0);
     if (plot_SF > 0) structFact.FortStructure(hydrovs);
     if (plot_int > 0 && step%plot_int ==0) {
-      PrintMultiFabComp(fold, 3, 0);
+      
       WriteOutput(step, geom, hydrovs, structFact);
       Print() << "\t**************************************\t" << std::endl;
       Print() << "\tLB step " << step << std::endl;
