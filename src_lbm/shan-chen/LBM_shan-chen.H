@@ -108,15 +108,12 @@ Array<RealVect,2> transform_velocity(Array<Real,2> const& rho, Array<RealVect,2>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia) {
   Array<Array1D<Real,0,nvel>,2> phia;
-  Array<RealVect,2> vr;
-
-  vr = transform_velocity(rhoa, va, aa, xia);
 
   for (int i=0; i<2; ++i) {
     Array1D<Real,0,nvel>& phi = phia[i];
 
     Real const& rho = rhoa[i];
-    RealVect const& v = vr[i];
+    RealVect const& v = va[i];
     RealVect const& a = aa[i];
 
     /* density mode */
@@ -154,7 +151,7 @@ void collide(int x, int y, int z,
   Array<Array1D<Real,0,nvel>,2> phi;
   Array1D<Real,0,2*nvel> xi;
   Array<Real,2> rho, rho_ref;
-  Array<RealVect,2> v, a;
+  Array<RealVect,2> v, a, vr;
   RealVect v_b, a_b;
 
   // reference densities
@@ -175,13 +172,15 @@ void collide(int x, int y, int z,
   a[0] = -G*cs2*gradient(x,y,z,h,1);
   a[1] = -G*cs2*gradient(x,y,z,h,0);
 
+  vr = transform_velocity(rho, v, a, xi);
+
   v_b = (rho[0]*v[0]+rho[1]*v[1])/(rho[0]+rho[1]);
   a_b = (rho[0]*a[0]+rho[1]*a[1])/(rho[0]+rho[1]);
 
   mfEq = equilibrium_moments(rho[0], v_b+0.5*a_b);
   mgEq = equilibrium_moments(rho[1], v_b+0.5*a_b);
 
-  phi = force_moments(rho, v, a, xi);
+  phi = force_moments(rho, vr, a, xi);
   Array1D<Real,0,nvel> const& phif = phi[0];
   Array1D<Real,0,nvel> const& phig = phi[1];
 
@@ -279,18 +278,52 @@ Vector<std::string> hydrovars_names(const int numVars) {
 }
 
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+void densities(int x, int y, int z,
+         const Array4<Real>& f,
+         const Array4<Real>& g,
+         const Array4<Real>& h) {
+  Real rho=0.0;
+  Real phi=0.0;
+  for (int i=0; i<nvel; ++i) {
+    rho += f(x,y,z,i);
+    phi += g(x,y,z,i);
+  }
+  h(x,y,z,0) = rho;
+  h(x,y,z,1) = phi;
+}
+
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 void hydrovars(int x, int y, int z,
 	       const Array4<Real>& f,
 	       const Array4<Real>& g,
-	       const Array4<Real>& h) {
+	       const Array4<Real>& h,
+         const Array4<Real>& ref,
+         const RandomEngine& engine) {
+  const Array<Real,2> rho_ref = { ref(x,y,z,0), ref(x,y,z,1) };
   const Array1D<Real,0,nvel> mf = moments(x,y,z,f);
   const Array1D<Real,0,nvel> mg = moments(x,y,z,g);
-  h(x,y,z,0) = mf(0);
-  h(x,y,z,1) = mg(0);
+  const Array1D<Real,0,2*nvel> xi = thermal_noise(rho_ref, engine);
+  Array<Real,2> rho;
+  Array<RealVect,2> v, a, vr;
+
+  rho[0] = mf(0);
+  rho[1] = mg(0);
+
+  v[0] = (mf(0) > FLT_EPSILON) ? RealVect(mf(1), mf(2), mf(3))/mf(0) : RealVect(0.);
+  v[1] = (mg(0) > FLT_EPSILON) ? RealVect(mg(1), mg(2), mg(3))/mg(0) : RealVect(0.);
+
+  a[0] = -G*cs2*gradient(x,y,z,h,1);
+  a[1] = -G*cs2*gradient(x,y,z,h,0);
+
+  vr = transform_velocity(rho, v, a, xi);
+
+  h(x,y,z,0) = rho[0];
+  h(x,y,z,1) = rho[1];
   for (int i=1; i<=AMREX_SPACEDIM; ++i) {     // momentum/velocity i=1..3
-    h(x,y,z,i+1) = mf(i)/mf(0);               // u_f to be stored in 2..4
-    h(x,y,z,i+1+AMREX_SPACEDIM) = mg(i)/mg(0);// u_g to be stored in 5..7
+    h(x,y,z,i+1) = vr[0][i];                  // u_f to be stored in 2..4
+    h(x,y,z,i+1+AMREX_SPACEDIM) = vr[1][i];   // u_g to be stored in 5..7
   }
+  // [uschill 2025/05/05: higher moments are the bare (untransformed) moments]
   for (int i=1+AMREX_SPACEDIM; i<nvel; ++i) { // remaining moments i=4..18
     h(x,y,z,i+1+AMREX_SPACEDIM) = mf(i);      // f to be stored in 8..22
     h(x,y,z,i+nvel) = mg(i);                  // g to be stored in 23..37
@@ -299,13 +332,23 @@ void hydrovars(int x, int y, int z,
 
 // calculate hydrodynamic moments for whole lattice
 AMREX_FORCE_INLINE
-void hydrovars(MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
-  auto const & f = mf.arrays();
-  auto const & g = mg.arrays();
-  auto const & h = hydrovs.arrays();
-  ParallelFor(hydrovs, IntVect(0), [=] AMREX_GPU_DEVICE(int nbx, int x, int y, int z) {
-    hydrovars(x, y, z, f[nbx], g[nbx], h[nbx]);
-  });
+void hydrovars(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab& hydrovs, MultiFab& refstate) {
+  const int halo=1;
+  mf.FillBoundary(geom.periodicity());
+  mg.FillBoundary(geom.periodicity());
+  refstate.FillBoundary(geom.periodicity());
+  for (MFIter mfi(hydrovs); mfi.isValid(); ++mfi) {
+    auto const & f = mf.array(mfi);
+    auto const & g = mg.array(mfi);
+    auto const & h = hydrovs.array(mfi);
+    auto const & ref = refstate.array(mfi);
+    ParallelFor(mfi.growntilebox(halo), [=] AMREX_GPU_DEVICE(int x, int y, int z) {
+      densities(x, y, z, f, g, h);
+    });
+    ParallelForRNG(mfi.tilebox(), [=] AMREX_GPU_DEVICE(int x, int y, int z, const RandomEngine& engine) {
+      hydrovars(x, y, z, f, g, h, ref, engine);
+    });
+  }
 }
 
 // LB timestep for whole lattice
@@ -315,26 +358,31 @@ void LBM_timestep(const Geometry& geom,
 			 MultiFab& fnew, MultiFab& gnew,
 			 MultiFab& hydrovs, MultiFab& refstate) {
   collide_stream(geom, fold, gold, fnew, gnew, hydrovs, refstate);
-  hydrovars(fold, gold, hydrovs);
+  hydrovars(geom, fold, gold, hydrovs, refstate);
 }
 
 // homogeneous mixture of C1 and C2 with random concentration fluctuations
-void LBM_init_mixture(MultiFab& mf,
+void LBM_init_mixture(Geometry const& geom,
+           MultiFab& mf,
 			     MultiFab& mg,
-			     MultiFab& hydrovs) {
+			     MultiFab& hydrovs,
+           MultiFab& refstate) {
   const Real rho = 0.5*(::rho_hi+::rho_lo);
   for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
     const Array4<Real>& f = mf.array(mfi);
     const Array4<Real>& g = mg.array(mfi);
+    const Array4<Real>& ref = refstate.array(mfi);
     ParallelForRNG(mfi.validbox(), [=] AMREX_GPU_DEVICE(int x, int y, int z, RandomEngine const& engine) {
       const Real noise = 0.01*RandomNormal(0., 1., engine);
       for (int i=0; i<nvel; i++) {
         f(x,y,z,i) = w[i]*(rho + noise);
         g(x,y,z,i) = w[i]*(rho - noise);
       }
+      ref(x,y,z,0) = rho;
+      ref(x,y,z,1) = rho;
     });
   }
-  hydrovars(mf, mg, hydrovs);
+  hydrovars(geom, mf, mg, hydrovs, refstate);
 }
 
 // flat interface between C1 and C2
@@ -342,7 +390,8 @@ void LBM_init_stripe(const Real frac,
             const Geometry& geom,
 				    MultiFab& mf,
 				    MultiFab& mg,
-				    MultiFab& hydrovs) {
+				    MultiFab& hydrovs,
+            MultiFab& refstate) {
   GpuArray<Real,3> dx = geom.CellSizeArray();
   const IntVect box = geom.Domain().length();
   const Real rho_t = ::rho_hi + ::rho_lo;
@@ -350,6 +399,7 @@ void LBM_init_stripe(const Real frac,
   const Real pos_hi = 0.5*frac;
   auto const & f = mf.arrays();
   auto const & g = mg.arrays();
+  auto const & ref = refstate.arrays();
   ParallelFor(mf, IntVect(0), [=] AMREX_GPU_DEVICE(int nbx, int x, int y, int z) {
     const Real pos = z-box[2]/2;
     const Real rho =  (::rho_hi-::rho_lo)*0.5*(std::tanh((pos-pos_lo)/std::sqrt(alpha)) + std::tanh((pos_hi-pos)/std::sqrt(alpha))) + ::rho_lo;
@@ -357,8 +407,10 @@ void LBM_init_stripe(const Real frac,
       f[nbx](x,y,z,i) = w[i]*rho;
       g[nbx](x,y,z,i) = w[i]*(rho_t-rho);
     }
+    ref[nbx](x,y,z,0) = rho;
+    ref[nbx](x,y,z,1) = rho_t-rho;
   });
-  hydrovars(mf, mg, hydrovs);
+  hydrovars(geom, mf, mg, hydrovs, refstate);
 }
 
 // binary droplet of C1 and C2
@@ -366,13 +418,15 @@ void LBM_init_droplet(const Real dfrac,
 			     const Geometry& geom,
 			     MultiFab& mf,
 			     MultiFab& mg,
-			     MultiFab& hydrovs) {
+			     MultiFab& hydrovs,
+           MultiFab& refstate) {
   GpuArray<Real,3> dx = geom.CellSizeArray();
   const IntVect box = geom.Domain().length();
   const Real R = 0.5*dfrac*box[0];
   const Real rho_t = ::rho_hi + ::rho_lo;
   auto const & f = mf.arrays();
   auto const & g = mg.arrays();
+  auto const & ref = refstate.arrays();
   ParallelFor(mf, IntVect(0), [=] AMREX_GPU_DEVICE(int nbx, int x, int y, int z) {
     const Real rx = x-box[0]/2;
     const Real ry = y-box[1]/2;
@@ -383,14 +437,16 @@ void LBM_init_droplet(const Real dfrac,
       f[nbx](x,y,z,i) = w[i]*rho;
       g[nbx](x,y,z,i) = w[i]*(rho_t-rho);
     }
+    ref[nbx](x,y,z,0) = rho;
+    ref[nbx](x,y,z,1) = rho_t-rho;
   });
-  hydrovars(mf, mg, hydrovs);
+  hydrovars(geom, mf, mg, hydrovs, refstate);
 }
 
-void LBM_init(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab& hydrovs) {
-  if (init_cond == "mixture") LBM_init_mixture(mf, mg, hydrovs);
-  else if (init_cond == "stripe") LBM_init_stripe(init_frac, geom, mf, mg, hydrovs);
-  else if (init_cond == "droplet") LBM_init_droplet(init_frac, geom, mf, mg, hydrovs);
+void LBM_init(const Geometry& geom, MultiFab& mf, MultiFab& mg, MultiFab& hydrovs, MultiFab& refstate) {
+  if (init_cond == "mixture") LBM_init_mixture(geom, mf, mg, hydrovs, refstate);
+  else if (init_cond == "stripe") LBM_init_stripe(init_frac, geom, mf, mg, hydrovs, refstate);
+  else if (init_cond == "droplet") LBM_init_droplet(init_frac, geom, mf, mg, hydrovs, refstate);
   else {
     Print() << "ERROR: Unkown init_cond";
     ParallelDescriptor::Abort(-1, false);
