@@ -3,19 +3,19 @@
 
 #include "LBM_d3q19.H"
 
-const IntVect print_grid(-1, -1, -1); // grid to print out
+const IntVect print_grid(0, 0, 0); // grid to print out
 
 
 // default initial condition
-std::string init_cond = "droplet";
+std::string init_cond = "mixture"; // "mixture", "droplet", "stripe"
 
-AMREX_GPU_MANAGED Real G = 0.8;
-AMREX_GPU_MANAGED Real rho_hi = 1.;//2.3; // values reported by Belardinelli et al. [Phys. Rev. E 91, 023313 (2015)]
+AMREX_GPU_MANAGED Real G = 0.;
+AMREX_GPU_MANAGED Real rho_hi = 2.;//2.3; // values reported by Belardinelli et al. [Phys. Rev. E 91, 023313 (2015)]
 AMREX_GPU_MANAGED Real rho_lo = 0.;//0.06;
 AMREX_GPU_MANAGED Real sigma = 0.174; // interfacial tension
 AMREX_GPU_MANAGED Real alpha = 0.001; // interface width
 
-AMREX_GPU_MANAGED Real temperature = 0.;//1e-5;
+AMREX_GPU_MANAGED Real temperature = 1e-5;
 
 AMREX_GPU_MANAGED Real init_frac = 0.6; // fractional size of droplet or stripe
 
@@ -118,9 +118,9 @@ Array<RealVect,2> transform_velocity(Array<Real,2> const& rho, Array<RealVect,2>
 }
 
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
-Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia, bool tag=false) {
+Array<Array1D<Real,0,nvel>,2> force_moments(const Array<Real,2>& rhoa, Array<RealVect,2>& va, const Array<RealVect,2>& aa, const Array1D<Real, 0, 2*nvel>& xia,
+  Array<RealVect,2>& vr, bool tag=false) {
   Array<Array1D<Real,0,nvel>,2> phia;
-  Array<RealVect,2> vr;
 
   if(tag){
     vr = transform_velocity(rhoa, va, aa, xia, true);
@@ -210,19 +210,27 @@ void collide(int x, int y, int z,
   mfEq = equilibrium_moments(rho[0], v_b+0.5*a_b);
   mgEq = equilibrium_moments(rho[1], v_b+0.5*a_b);
 
-
-  if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]){
+  Array<RealVect,2> vr;
+  phi = force_moments(rho, v, a, xi, vr); // obtain the real velocity field vr;
+  // calculate real hydrovars -- vr
+  h(x,y,z,2) = vr[0][0];  // fluid f;
+  h(x,y,z,3) = vr[0][1];
+  h(x,y,z,4) = vr[0][2];
+  h(x,y,z,5) = vr[1][0];  // fluid g;
+  h(x,y,z,6) = vr[1][1];
+  h(x,y,z,7) = vr[1][2];
+  /*if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]){
     printf("fluid f,g real velocity in collide() = \n");
     phi = force_moments(rho, v, a, xi, true);
     printf("\n");
   }else{
     phi = force_moments(rho, v, a, xi);
-  }
+  }*/
 
   Array1D<Real,0,nvel> const& phif = phi[0];
   Array1D<Real,0,nvel> const& phig = phi[1];
 
-  if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]) {
+  /*if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]) {
     printf("moments in collide() = \n");
     for(int i=0; i<nvel; ++i) {
       printf("mfEq(%d) = %.8f\t", i, mfEq(i));
@@ -241,34 +249,33 @@ void collide(int x, int y, int z,
       printf("ag(%d) = %.8f\t", i, a[1][i]);
     }
     printf("\n");
-  }
-
+  }*/
 
   for (int i=0; i<nvel; ++i) {
     mf(i) = mf(i) - lambda_f[i] * (mf(i) - mfEq(i)) + (1.-0.5*lambda_f[i])*phif(i) + xi(i);
     mg(i) = mg(i) - lambda_g[i] * (mg(i) - mgEq(i)) + (1.-0.5*lambda_g[i])*phig(i) + xi(i+nvel);
   }
 
-  if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]) {
+  /*if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]) {
     printf("moments after collision = \n");
     for(int i=0; i<nvel; ++i) {
       printf("mf(%d) = %f\t", i, mf(i));
       printf("mg(%d) = %f\t", i, mg(i));
     }
     printf("\n");
-  }
+  }*/
 
   populations(x,y,z,f,mf);
   populations(x,y,z,g,mg);
 
-  if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]) {
+  /*if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]) {
     printf("populations after collision = \n");
     for(int i=0; i<nvel; ++i) {
       printf("f(%d) = %.8f\t", i, f(x,y,z,i));
       printf("g(%d) = %.8f\t", i, g(x,y,z,i));
     }
     printf("\n");
-  }
+  }*/
 
 }
 
@@ -372,16 +379,16 @@ void hydrovars(int x, int y, int z,
   const Array1D<Real,0,nvel> mg = moments(x,y,z,g);
   h(x,y,z,0) = mf(0);
   h(x,y,z,1) = mg(0);
-  for (int i=1; i<=AMREX_SPACEDIM; ++i) {     // momentum/velocity i=1..3
+  /*for (int i=1; i<=AMREX_SPACEDIM; ++i) {     // momentum/velocity i=1..3
     h(x,y,z,i+1) = mf(i)/mf(0);               // u_f to be stored in 2..4
     h(x,y,z,i+1+AMREX_SPACEDIM) = mg(i)/mg(0);// u_g to be stored in 5..7
   }
   for (int i=1+AMREX_SPACEDIM; i<nvel; ++i) { // remaining moments i=4..18
     h(x,y,z,i+1+AMREX_SPACEDIM) = mf(i);      // f to be stored in 8..22
     h(x,y,z,i+nvel) = mg(i);                  // g to be stored in 23..37
-  }
+  }*/
 
-  if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]) {
+  /*if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]) {
     printf("populations after streaming in hydrovars() = \n");
     for(int i=0; i<nvel; ++i) {
       printf("hydro_f(%d) = %.8f\t", i, f(x,y,z,i));
@@ -391,7 +398,7 @@ void hydrovars(int x, int y, int z,
     printf("hydro_h(%d) = %.8f\t", 0, h(x,y,z,0));
     printf("hydro_h(%d) = %.8f\t", 1, h(x,y,z,1));
     printf("\n");
-  }
+  }*/
 }
 
 // calculate hydrodynamic moments for whole lattice
@@ -428,8 +435,8 @@ inline void LBM_init_mixture(const Geometry& geom,
     ParallelForRNG(mfi.validbox(), [=] AMREX_GPU_DEVICE(int x, int y, int z, RandomEngine const& engine) {
       const Real noise = 0.;//0.01*RandomNormal(0., 1., engine);
       for (int i=0; i<nvel; i++) {
-        f(x,y,z,i) = w[i]*(rho + (x+y+z)/500.);
-        g(x,y,z,i) = w[i]*(rho - (x+y+z)/500.);
+        f(x,y,z,i) = w[i]*(rho/* + (x+y+z)/500.*/);
+        g(x,y,z,i) = w[i]*(rho/* - (x+y+z)/500.*/);
       }
     });
   }
