@@ -219,6 +219,9 @@ void collide(int x, int y, int z,
   h(x,y,z,5) = vr[1][0];  // fluid g;
   h(x,y,z,6) = vr[1][1];
   h(x,y,z,7) = vr[1][2];
+  h(x,y,z,8) = v_b[0]+0.5*a_b[0]; // barycentric velocity;
+  h(x,y,z,9) = v_b[1]+0.5*a_b[1]; 
+  h(x,y,z,10) = v_b[2]+0.5*a_b[2]; 
   /*if(x==print_grid[0] && y==print_grid[1] && z==print_grid[2]){
     printf("fluid f,g real velocity in collide() = \n");
     phi = force_moments(rho, v, a, xi, true);
@@ -339,7 +342,7 @@ void collide_stream(const Geometry& geom,
   MultiFab::Swap(gold, gnew, 0, 0, nvel, 0);
 }
 
-Vector<std::string> hydrovars_names(const int numVars) {
+Vector<std::string> hydrovars_names(const int numVars, bool ifPrint=false) {
   Vector<std::string> var_names(numVars);
   std::string name;
   int cnt = 0;
@@ -358,6 +361,12 @@ Vector<std::string> hydrovars_names(const int numVars) {
     name += (120+d);
     var_names[cnt++] = name;
   }
+  // barycentric velocity
+  for (int d=0; d<AMREX_SPACEDIM && cnt<numVars; d++) {
+    name = "uCen";
+    name += (120+d);
+    var_names[cnt++] = name;
+  }
   // remaining moments
   for (; cnt<nvel+AMREX_SPACEDIM+1 && cnt<numVars;) {
     name = "mf" + std::to_string(cnt-(AMREX_SPACEDIM+1));
@@ -366,6 +375,13 @@ Vector<std::string> hydrovars_names(const int numVars) {
   for (; cnt<2*nvel && cnt<numVars;) {
     name = "mg"+std::to_string(cnt-nvel);
     var_names[cnt++] = name;
+  }
+  if(ifPrint){
+    Print() << "hydrovars_names() = ";
+    for(int n=0; n<cnt; n++){
+      Print() << var_names[n] << '\t';
+    }
+    Print() << '\n';
   }
   return var_names;
 }

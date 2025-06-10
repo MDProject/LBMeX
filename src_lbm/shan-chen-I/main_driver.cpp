@@ -45,8 +45,8 @@ int main(int argc, char* argv[]) {
   bool continueFromNonFluct = true;//false; 
 
   // Total number of steps to run; MUST be integer multiples of [plot_int];
-  int nsteps = 500000;//100000;
-  int plot_int = 1000;//10;//1000; // output configurations every [plot_int] steps;
+  int nsteps = 1000000;//100000;
+  int plot_int = 2000;//10;//1000; // output configurations every [plot_int] steps;
   int print_int = 100;      // print out info every [print_int] steps;
   /*specifying time window for calculating the equilibrium state solution;
     usually be set as multiples of [plot_int], from step [last_step_index-t_window] to [last_step_index];
@@ -55,11 +55,11 @@ int main(int argc, char* argv[]) {
   int out_noise_step = plot_int;    // output noise terms every [out_noise_step] steps;
 
   // [plot_SF_window] is the time window for calculating the structure factor;
-  int plot_SF_window = 100000; // not affected by [plot_int]; out freq controlled by [out_SF_step]
-  int out_SF_step = 50;
+  int plot_SF_window = 200000; // not affected by [plot_int]; out freq controlled by [out_SF_step]
+  int out_SF_step = 100;
 
   // set up Box and Geomtry
-  RealBox real_box({0.,0.,0.},{1.,1.,1.});
+  RealBox real_box({0.,0.,0.},{1.,1.,1.}); 
   IntVect dom_lo(0, 0, 0);
   IntVect dom_hi(domain_size-1);
   Array<int,3> periodicity({1,1,1});
@@ -81,11 +81,12 @@ int main(int argc, char* argv[]) {
   MultiFab noise(ba, dm, 2*nvel, nghost);
 
   // set up StructFact
-  int nStructVars = 8;
-  const Vector<std::string> var_names = hydrovars_names(nStructVars);
-  const Vector<int> pairA = { 0, 1, 2, 3, 4, 5, 6, 7 };
-  const Vector<int> pairB = { 0, 1, 2, 3, 4, 5, 6, 7 };
-  const Vector<Real> var_scaling = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
+  int nStructVars = 11;
+  const Vector<std::string> var_names = hydrovars_names(nStructVars, true);
+  const Vector<int> pairA = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+  const Vector<int> pairB = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+  const Vector<Real> var_scaling = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                                     1.0, 1.0, 1.0 }; // scaling factors for each variable
   StructFact structFact(ba, dm, var_names, var_scaling, pairA, pairB);
 
   // INITIALIZE
