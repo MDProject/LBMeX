@@ -319,9 +319,9 @@ void hydrovars(int x, int y, int z,
 
   h(x,y,z,0) = rho[0];
   h(x,y,z,1) = rho[1];
-  for (int i=1; i<=AMREX_SPACEDIM; ++i) {     // momentum/velocity i=1..3
-    h(x,y,z,i+1) = vr[0][i];                  // u_f to be stored in 2..4
-    h(x,y,z,i+1+AMREX_SPACEDIM) = vr[1][i];   // u_g to be stored in 5..7
+  for (int i=0; i<AMREX_SPACEDIM; ++i) {     // momentum/velocity i=1..3
+    h(x,y,z,i+2) = vr[0][i];                  // u_f to be stored in 2..4
+    h(x,y,z,i+2+AMREX_SPACEDIM) = vr[1][i];   // u_g to be stored in 5..7
   }
   // [uschill 2025/05/05: higher moments are the bare (untransformed) moments]
   for (int i=1+AMREX_SPACEDIM; i<nvel; ++i) { // remaining moments i=4..18
